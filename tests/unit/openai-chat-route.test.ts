@@ -84,8 +84,21 @@ describe('POST /v1/chat/completions', () => {
     expect(response.status).toBe(401)
   })
 
-  it('returns 422 for streaming until the streaming milestone is implemented', async () => {
-    vi.stubGlobal('fetch', vi.fn())
+  it('returns an SSE stream for OpenAI-routed streaming requests', async () => {
+    const streamBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            'data: {\"id\":\"chatcmpl_stream_1\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-5-mini\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"omni \"},\"finish_reason\":null}]}\\n\\n' +
+            'data: {\"id\":\"chatcmpl_stream_1\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-5-mini\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"relay ok\"},\"finish_reason\":\"stop\"}]}\\n\\n' +
+            'data: [DONE]\\n\\n',
+          ),
+        )
+        controller.close()
+      },
+    })
+
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(streamBody, { status: 200 })))
 
     const response = await worker.fetch(
       new Request('https://example.com/v1/chat/completions', {
@@ -98,6 +111,34 @@ describe('POST /v1/chat/completions', () => {
         }),
       }),
       env,
+      ctx,
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('text/event-stream')
+
+    const [, init] = vi.mocked(fetch).mock.calls[0]! as unknown as [string, RequestInit]
+    const upstreamPayload = JSON.parse(String(init.body)) as Record<string, unknown>
+    expect(upstreamPayload.stream).toBe(true)
+  })
+
+  it('returns 422 for streaming when the selected provider does not support it yet', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-0',
+          stream: true,
+          messages: [{ role: 'user', content: 'Hello' }],
+        }),
+      }),
+      {
+        ENVIRONMENT: 'test',
+        ANTHROPIC_API_KEY: 'anthropic-secret',
+      },
       ctx,
     )
 

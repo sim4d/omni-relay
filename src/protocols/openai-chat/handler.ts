@@ -6,10 +6,11 @@ import { readJsonBody } from '../../lib/json'
 import { jsonResponse } from '../../lib/http'
 import { renderOpenAIChatResponse } from './render'
 import { parseOpenAIChatRequest } from './parse'
-import { invokeOpenAIChat } from '../../providers/openai/client'
+import { invokeOpenAIChat, invokeOpenAIChatStream } from '../../providers/openai/client'
 import { invokeAnthropicMessages } from '../../providers/anthropic/client'
 import type { AppEnv } from '../../env'
 import type { RequestContext } from '../../observability'
+import { renderOpenAIChatStream } from './stream'
 
 export async function handleOpenAIChatCompletions(request: Request, env: AppEnv, requestContext: RequestContext): Promise<Response> {
   const bearer = parseAuthorizationHeader(request)
@@ -27,6 +28,18 @@ export async function handleOpenAIChatCompletions(request: Request, env: AppEnv,
   assertMilestoneOneFeatureSupport(normalized)
 
   const provider = selectProvider(normalized)
+  if (normalized.stream && provider === 'openai') {
+    const events = await invokeOpenAIChatStream(normalized, env)
+    return new Response(renderOpenAIChatStream(events), {
+      status: 200,
+      headers: {
+        'content-type': 'text/event-stream; charset=utf-8',
+        'cache-control': 'no-cache',
+        'x-request-id': requestContext.requestId,
+      },
+    })
+  }
+
   const result =
     provider === 'openai'
       ? await invokeOpenAIChat(normalized, env)

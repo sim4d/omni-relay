@@ -2,6 +2,7 @@ import { MethodNotAllowedError, NotFoundError } from './errors'
 import { jsonResponse } from './lib/http'
 import type { AppEnv } from './env'
 import type { RequestContext } from './observability'
+import { handleDebugTranslate } from './debug/translate'
 import { handleAnthropicMessages } from './protocols/anthropic-messages/handler'
 import { handleOpenAIChatCompletions } from './protocols/openai-chat/handler'
 import { handleOpenAIResponses } from './protocols/openai-responses/handler'
@@ -54,6 +55,14 @@ export async function routeRequest(request: Request, env: AppEnv, ctx: Execution
     }
 
     return handleAnthropicMessages(request, env, requestContext)
+  }
+
+  if (url.pathname === '/v1/debug/translate') {
+    if (request.method !== 'POST') {
+      throw new MethodNotAllowedError('Only POST is allowed for /v1/debug/translate')
+    }
+
+    return handleDebugTranslate(request, env, requestContext)
   }
 
   throw new NotFoundError(`No route registered for ${request.method} ${url.pathname}`)

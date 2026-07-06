@@ -32,3 +32,8 @@ Required secrets for later milestones:
 - `RELAY_API_KEY`
 - `OPENAI_API_KEY`
 - `ANTHROPIC_API_KEY`
+
+
+## Deployment
+
+See `docs/deployment.md` for secret setup, deploy commands, and remote verification examples.
