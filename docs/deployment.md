@@ -67,3 +67,31 @@ curl https://<worker>.workers.dev/v1/debug/translate \
 ## Current known verification blockers
 
 Full live upstream verification depends on valid provider secrets being present in the deployed Worker environment. If a provider secret is missing or invalid, the Worker should still return a structured JSON error that identifies the missing or rejected upstream credential.
+
+
+## Optional rate limiting binding
+
+You can enable Cloudflare-native rate limiting by adding a `ratelimits` binding to `wrangler.jsonc` and exposing it as `RATE_LIMITER`:
+
+```jsonc
+{
+  "ratelimits": [
+    {
+      "name": "RATE_LIMITER",
+      "namespace_id": "relayx-rate-limit-v1",
+      "simple": {
+        "limit": 120,
+        "period": 60
+      }
+    }
+  ]
+}
+```
+
+When present, the Worker uses the binding on `/v1/chat/completions`, `/v1/responses`, `/v1/messages`, and `/v1/debug/translate`.
+
+## Debug route security
+
+- `/v1/debug/translate` is **disabled by default in production**.
+- Enable it by setting `ENABLE_DEBUG_ROUTES=true`.
+- It also requires `RELAY_API_KEY` to be configured and supplied as `Authorization: Bearer <key>`.

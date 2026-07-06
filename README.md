@@ -37,3 +37,10 @@ Required secrets for later milestones:
 ## Deployment
 
 See `docs/deployment.md` for secret setup, deploy commands, and remote verification examples.
+
+
+## Security notes
+
+- `/v1/debug/translate` is disabled by default in production.
+- Set `ENABLE_DEBUG_ROUTES=true` and configure `RELAY_API_KEY` if you need the debug endpoint remotely.
+- If a `RATE_LIMITER` binding is configured, relay routes will enforce Cloudflare-native rate limiting.

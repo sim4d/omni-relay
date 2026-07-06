@@ -5,11 +5,12 @@ import { selectProvider } from '../../core/routing'
 import type { AppEnv } from '../../env'
 import { jsonResponse } from '../../lib/http'
 import { readJsonBody } from '../../lib/json'
-import type { RequestContext } from '../../observability'
-import { invokeAnthropicMessages } from '../../providers/anthropic/client'
-import { invokeOpenAIResponses } from '../../providers/openai/responses-client'
+import { log, type RequestContext } from '../../observability'
+import { invokeAnthropicMessages, invokeAnthropicMessagesStream } from '../../providers/anthropic/client'
+import { invokeOpenAIResponses, invokeOpenAIResponsesStream } from '../../providers/openai/responses-client'
 import { parseOpenAIResponsesRequest } from './parse'
 import { renderOpenAIResponsesResponse } from './render'
+import { renderOpenAIResponsesStream } from './stream'
 
 export async function handleOpenAIResponses(request: Request, env: AppEnv, requestContext: RequestContext): Promise<Response> {
   const bearer = parseAuthorizationHeader(request)
@@ -24,9 +25,37 @@ export async function handleOpenAIResponses(request: Request, env: AppEnv, reque
     throw new ValidationError('At least one message is required for the OpenAI Responses route')
   }
 
-  assertMilestoneOneFeatureSupport(normalized)
-
   const provider = selectProvider(normalized)
+  assertMilestoneOneFeatureSupport(normalized, provider, 'responses')
+  log(env, 'info', 'relay_request_resolved', {
+    requestId: requestContext.requestId,
+    routeProtocol: 'responses',
+    provider,
+    model: normalized.targetModel,
+    stream: normalized.stream,
+  })
+  if (normalized.stream) {
+    const events =
+      provider === 'openai'
+        ? await invokeOpenAIResponsesStream(normalized, env)
+        : provider === 'anthropic'
+          ? await invokeAnthropicMessagesStream(normalized, env)
+          : (() => {
+              throw new ValidationError(`Unsupported provider selected for OpenAI Responses route: ${provider}`)
+            })()
+
+    return new Response(renderOpenAIResponsesStream(events), {
+      status: 200,
+      headers: {
+        'content-type': 'text/event-stream; charset=utf-8',
+        'cache-control': 'no-cache',
+        'x-request-id': requestContext.requestId,
+        'x-omni-selected-provider': provider,
+        'x-omni-route-protocol': 'responses',
+      },
+    })
+  }
+
   const result =
     provider === 'openai'
       ? await invokeOpenAIResponses(normalized, env)
@@ -39,6 +68,8 @@ export async function handleOpenAIResponses(request: Request, env: AppEnv, reque
     status: 200,
     headers: {
       'x-request-id': requestContext.requestId,
+      'x-omni-selected-provider': provider,
+      'x-omni-route-protocol': 'responses',
     },
   })
 }

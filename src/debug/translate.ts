@@ -1,4 +1,4 @@
-import { AuthenticationError, ValidationError } from '../errors'
+import { AuthenticationError, AuthorizationError, ValidationError } from '../errors'
 import { parseAuthorizationHeader, validateRelayAuthorization } from '../auth'
 import { selectProvider } from '../core/routing'
 import type { AppEnv } from '../env'
@@ -10,6 +10,10 @@ import { parseOpenAIChatRequest } from '../protocols/openai-chat/parse'
 import { parseOpenAIResponsesRequest } from '../protocols/openai-responses/parse'
 
 export async function handleDebugTranslate(request: Request, env: AppEnv, requestContext: RequestContext): Promise<Response> {
+  if (!env.RELAY_API_KEY) {
+    throw new AuthorizationError('Debug route requires RELAY_API_KEY to be configured')
+  }
+
   const bearer = parseAuthorizationHeader(request)
   if (!validateRelayAuthorization(env, bearer?.token)) {
     throw new AuthenticationError('Invalid relay API key')

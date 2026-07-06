@@ -5,11 +5,12 @@ import { selectProvider } from '../../core/routing'
 import type { AppEnv } from '../../env'
 import { jsonResponse } from '../../lib/http'
 import { readJsonBody } from '../../lib/json'
-import type { RequestContext } from '../../observability'
-import { invokeAnthropicMessages } from '../../providers/anthropic/client'
-import { invokeOpenAIResponses } from '../../providers/openai/responses-client'
+import { log, type RequestContext } from '../../observability'
+import { invokeAnthropicMessages, invokeAnthropicMessagesStream } from '../../providers/anthropic/client'
+import { invokeOpenAIResponses, invokeOpenAIResponsesStream } from '../../providers/openai/responses-client'
 import { parseAnthropicMessagesRequest } from './parse'
 import { renderAnthropicMessagesResponse } from './render'
+import { renderAnthropicMessagesStream } from './stream'
 
 export async function handleAnthropicMessages(request: Request, env: AppEnv, requestContext: RequestContext): Promise<Response> {
   const bearer = parseAuthorizationHeader(request)
@@ -24,9 +25,37 @@ export async function handleAnthropicMessages(request: Request, env: AppEnv, req
     throw new ValidationError('At least one message is required for the Anthropic Messages route')
   }
 
-  assertMilestoneOneFeatureSupport(normalized)
-
   const provider = selectProvider(normalized)
+  assertMilestoneOneFeatureSupport(normalized, provider, 'messages')
+  log(env, 'info', 'relay_request_resolved', {
+    requestId: requestContext.requestId,
+    routeProtocol: 'messages',
+    provider,
+    model: normalized.targetModel,
+    stream: normalized.stream,
+  })
+  if (normalized.stream) {
+    const events =
+      provider === 'anthropic'
+        ? await invokeAnthropicMessagesStream(normalized, env)
+        : provider === 'openai'
+          ? await invokeOpenAIResponsesStream(normalized, env)
+          : (() => {
+              throw new ValidationError(`Unsupported provider selected for Anthropic Messages route: ${provider}`)
+            })()
+
+    return new Response(renderAnthropicMessagesStream(events), {
+      status: 200,
+      headers: {
+        'content-type': 'text/event-stream; charset=utf-8',
+        'cache-control': 'no-cache',
+        'x-request-id': requestContext.requestId,
+        'x-omni-selected-provider': provider,
+        'x-omni-route-protocol': 'messages',
+      },
+    })
+  }
+
   const result =
     provider === 'anthropic'
       ? await invokeAnthropicMessages(normalized, env)
@@ -39,6 +68,8 @@ export async function handleAnthropicMessages(request: Request, env: AppEnv, req
     status: 200,
     headers: {
       'x-request-id': requestContext.requestId,
+      'x-omni-selected-provider': provider,
+      'x-omni-route-protocol': 'messages',
     },
   })
 }

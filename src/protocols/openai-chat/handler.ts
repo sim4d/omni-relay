@@ -7,9 +7,9 @@ import { jsonResponse } from '../../lib/http'
 import { renderOpenAIChatResponse } from './render'
 import { parseOpenAIChatRequest } from './parse'
 import { invokeOpenAIChat, invokeOpenAIChatStream } from '../../providers/openai/client'
-import { invokeAnthropicMessages } from '../../providers/anthropic/client'
+import { invokeAnthropicMessages, invokeAnthropicMessagesStream } from '../../providers/anthropic/client'
 import type { AppEnv } from '../../env'
-import type { RequestContext } from '../../observability'
+import { log, type RequestContext } from '../../observability'
 import { renderOpenAIChatStream } from './stream'
 
 export async function handleOpenAIChatCompletions(request: Request, env: AppEnv, requestContext: RequestContext): Promise<Response> {
@@ -25,17 +25,32 @@ export async function handleOpenAIChatCompletions(request: Request, env: AppEnv,
     throw new ValidationError('At least one non-instruction message is required')
   }
 
-  assertMilestoneOneFeatureSupport(normalized)
-
   const provider = selectProvider(normalized)
-  if (normalized.stream && provider === 'openai') {
-    const events = await invokeOpenAIChatStream(normalized, env)
+  assertMilestoneOneFeatureSupport(normalized, provider, 'chat')
+  log(env, 'info', 'relay_request_resolved', {
+    requestId: requestContext.requestId,
+    routeProtocol: 'chat',
+    provider,
+    model: normalized.targetModel,
+    stream: normalized.stream,
+  })
+  if (normalized.stream) {
+    const events =
+      provider === 'openai'
+        ? await invokeOpenAIChatStream(normalized, env)
+        : provider === 'anthropic'
+          ? await invokeAnthropicMessagesStream(normalized, env)
+          : (() => {
+              throw new ValidationError(`Unsupported provider selected for OpenAI Chat route: ${provider}`)
+            })()
     return new Response(renderOpenAIChatStream(events), {
       status: 200,
       headers: {
         'content-type': 'text/event-stream; charset=utf-8',
         'cache-control': 'no-cache',
         'x-request-id': requestContext.requestId,
+        'x-omni-selected-provider': provider,
+        'x-omni-route-protocol': 'chat',
       },
     })
   }
@@ -52,6 +67,8 @@ export async function handleOpenAIChatCompletions(request: Request, env: AppEnv,
     status: 200,
     headers: {
       'x-request-id': requestContext.requestId,
+      'x-omni-selected-provider': provider,
+      'x-omni-route-protocol': 'chat',
     },
   })
 }

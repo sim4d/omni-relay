@@ -1,7 +1,9 @@
+import { getConfig } from './config'
 import { MethodNotAllowedError, NotFoundError } from './errors'
 import { jsonResponse } from './lib/http'
 import type { AppEnv } from './env'
 import type { RequestContext } from './observability'
+import { enforceRateLimit } from './rate-limit'
 import { handleDebugTranslate } from './debug/translate'
 import { handleAnthropicMessages } from './protocols/anthropic-messages/handler'
 import { handleOpenAIChatCompletions } from './protocols/openai-chat/handler'
@@ -11,6 +13,7 @@ export async function routeRequest(request: Request, env: AppEnv, ctx: Execution
   void env
   void ctx
   const url = new URL(request.url)
+  const config = getConfig(env)
 
   if (url.pathname === '/healthz') {
     if (request.method !== 'GET') {
@@ -38,6 +41,7 @@ export async function routeRequest(request: Request, env: AppEnv, ctx: Execution
       throw new MethodNotAllowedError('Only POST is allowed for /v1/chat/completions')
     }
 
+    await enforceRateLimit(request, env)
     return handleOpenAIChatCompletions(request, env, requestContext)
   }
 
@@ -46,6 +50,7 @@ export async function routeRequest(request: Request, env: AppEnv, ctx: Execution
       throw new MethodNotAllowedError('Only POST is allowed for /v1/responses')
     }
 
+    await enforceRateLimit(request, env)
     return handleOpenAIResponses(request, env, requestContext)
   }
 
@@ -54,6 +59,7 @@ export async function routeRequest(request: Request, env: AppEnv, ctx: Execution
       throw new MethodNotAllowedError('Only POST is allowed for /v1/messages')
     }
 
+    await enforceRateLimit(request, env)
     return handleAnthropicMessages(request, env, requestContext)
   }
 
@@ -62,6 +68,11 @@ export async function routeRequest(request: Request, env: AppEnv, ctx: Execution
       throw new MethodNotAllowedError('Only POST is allowed for /v1/debug/translate')
     }
 
+    if (!config.debugRoutesEnabled) {
+      throw new NotFoundError(`No route registered for ${request.method} ${url.pathname}`)
+    }
+
+    await enforceRateLimit(request, env)
     return handleDebugTranslate(request, env, requestContext)
   }
 

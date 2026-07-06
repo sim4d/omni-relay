@@ -10,7 +10,10 @@ describe('POST /v1/debug/translate', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/debug/translate', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           protocol: 'chat',
           payload: {
@@ -19,7 +22,7 @@ describe('POST /v1/debug/translate', () => {
           },
         }),
       }),
-      { ENVIRONMENT: 'test' },
+      { ENVIRONMENT: 'development', ENABLE_DEBUG_ROUTES: 'true', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -47,5 +50,25 @@ describe('POST /v1/debug/translate', () => {
     )
 
     expect(response.status).toBe(401)
+  })
+
+  it('is disabled by default in production', async () => {
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/debug/translate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          protocol: 'chat',
+          payload: {
+            model: 'gpt-5-mini',
+            messages: [{ role: 'user', content: 'Hello' }],
+          },
+        }),
+      }),
+      { ENVIRONMENT: 'production' },
+      ctx,
+    )
+
+    expect(response.status).toBe(404)
   })
 })

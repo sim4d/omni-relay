@@ -4,6 +4,7 @@ export type AppConfig = {
   environment: string
   openaiBaseUrl: string
   anthropicBaseUrl: string
+  debugRoutesEnabled: boolean
 }
 
 export function getConfig(env: AppEnv): AppConfig {
@@ -11,5 +12,8 @@ export function getConfig(env: AppEnv): AppConfig {
     environment: env.ENVIRONMENT ?? 'development',
     openaiBaseUrl: env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
     anthropicBaseUrl: env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com/v1',
+    debugRoutesEnabled:
+      env.ENABLE_DEBUG_ROUTES === 'true'
+      || ((env.ENVIRONMENT ?? 'development') !== 'production' && env.ENABLE_DEBUG_ROUTES !== 'false'),
   }
 }

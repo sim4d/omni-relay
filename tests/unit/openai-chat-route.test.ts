@@ -122,8 +122,24 @@ describe('POST /v1/chat/completions', () => {
     expect(upstreamPayload.stream).toBe(true)
   })
 
-  it('returns 422 for streaming when the selected provider does not support it yet', async () => {
-    vi.stubGlobal('fetch', vi.fn())
+  it('returns an SSE stream for Anthropic-routed streaming requests in cross-provider mode', async () => {
+    const streamBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            'event: message_start\\n' +
+            'data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_1\",\"model\":\"claude-sonnet-4-0\"}}\\n\\n' +
+            'event: content_block_delta\\n' +
+            'data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hello\"}}\\n\\n' +
+            'event: message_stop\\n' +
+            'data: {\"type\":\"message_stop\"}\\n\\n',
+          ),
+        )
+        controller.close()
+      },
+    })
+
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(streamBody, { status: 200 })))
 
     const response = await worker.fetch(
       new Request('https://example.com/v1/chat/completions', {
@@ -142,6 +158,7 @@ describe('POST /v1/chat/completions', () => {
       ctx,
     )
 
-    expect(response.status).toBe(422)
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('text/event-stream')
   })
 })

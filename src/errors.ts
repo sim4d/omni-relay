@@ -8,6 +8,7 @@ export type RelayErrorCode =
   | 'stream_protocol_error'
   | 'timeout_error'
   | 'internal_error'
+  | 'rate_limit_exceeded'
   | 'not_found'
   | 'method_not_allowed'
   | 'not_implemented'
@@ -69,6 +70,12 @@ export class StreamProtocolError extends RelayError {
 export class TimeoutError extends RelayError {
   constructor(message = 'Upstream request timed out', details?: unknown) {
     super(504, 'timeout_error', message, details)
+  }
+}
+
+export class RateLimitExceededError extends RelayError {
+  constructor(message = 'Rate limit exceeded', details?: unknown) {
+    super(429, 'rate_limit_exceeded', message, details)
   }
 }
 

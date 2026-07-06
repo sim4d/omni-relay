@@ -1,14 +1,35 @@
 import { UnsupportedFeatureError } from '../errors'
-import type { NormalizedRequest } from './ir'
+import type { NormalizedRequest, ProviderId } from './ir'
 
-export function assertMilestoneOneFeatureSupport(request: NormalizedRequest): void {
-  const hasProviderExtensionBlocks = [request.instructions, ...request.messages.map((message) => message.content)]
+export type RouteProtocol = 'chat' | 'responses' | 'messages'
+
+export function assertMilestoneOneFeatureSupport(
+  request: NormalizedRequest,
+  provider: ProviderId,
+  routeProtocol: RouteProtocol,
+): void {
+  const providerExtensionBlocks = [request.instructions, ...request.messages.map((message) => message.content)]
     .flat()
-    .some((block) => block.type === 'provider_extension')
+    .filter((block): block is Extract<(typeof request.instructions)[number], { type: 'provider_extension' }> => block.type === 'provider_extension')
 
-  if (hasProviderExtensionBlocks) {
+  for (const block of providerExtensionBlocks) {
+    if (block.provider !== provider) {
+      throw new UnsupportedFeatureError(
+        `Provider-native extension block "${block.name}" cannot be translated from ${block.provider} to ${provider} in MVP`,
+      )
+    }
+
+    if (provider === 'openai' && routeProtocol === 'chat') {
+      throw new UnsupportedFeatureError(
+        `OpenAI Chat upstream cannot safely preserve provider-native extension block "${block.name}" in MVP`,
+      )
+    }
+  }
+
+  const openAITextConfig = request.extensions?.openai?.text
+  if (openAITextConfig && (provider !== 'openai' || routeProtocol !== 'responses')) {
     throw new UnsupportedFeatureError(
-      'Provider-native extension blocks are not supported for cross-provider translation in MVP',
+      'Structured output via OpenAI Responses text configuration is only supported on the OpenAI Responses same-provider path in MVP',
     )
   }
 }
