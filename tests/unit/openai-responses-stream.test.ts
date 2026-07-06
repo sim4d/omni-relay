@@ -135,6 +135,32 @@ describe('OpenAI responses streaming foundations', () => {
     expect(body).toContain('"call_id":"call_1"')
   })
 
+  it('renders normalized function-tool events with arguments completion metadata', async () => {
+    async function* events() {
+      yield { type: 'response_start', provider: 'openai', model: 'glm-5.2' } as const
+      yield { type: 'message_start', role: 'assistant' } as const
+      yield { type: 'content_delta', deltaType: 'text', text: 'Let me inspect the repo first.' } as const
+      yield { type: 'tool_call_start', id: 'call_1', name: 'exec_command' } as const
+      yield { type: 'tool_call_delta', id: 'call_1', argumentsDelta: '{"cmd":"ls -la"}' } as const
+      yield { type: 'tool_call_end', id: 'call_1' } as const
+      yield { type: 'response_end', finishReason: 'tool_calls' } as const
+    }
+
+    const stream = renderOpenAIResponsesStream(events())
+    const body = await new Response(stream).text()
+
+    const messageDoneIndex = body.indexOf('response.output_item.done')
+    const functionCallAddedIndex = body.indexOf('"type":"function_call","id":"call_1"')
+    const functionArgsDoneIndex = body.indexOf('response.function_call_arguments.done')
+
+    expect(messageDoneIndex).toBeGreaterThan(-1)
+    expect(functionCallAddedIndex).toBeGreaterThan(messageDoneIndex)
+    expect(functionArgsDoneIndex).toBeGreaterThan(-1)
+    expect(body).toContain('"output_index":1')
+    expect(body).toContain('"arguments":"{\\"cmd\\":\\"ls -la\\"}"')
+    expect(body).toContain('"name":"exec_command"')
+  })
+
   it('fails clearly on invalid upstream JSON chunks', async () => {
     const upstream = new ReadableStream<Uint8Array>({
       start(controller) {

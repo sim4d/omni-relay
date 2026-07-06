@@ -7,10 +7,12 @@ import { jsonResponse } from '../../lib/http'
 import { readJsonBody } from '../../lib/json'
 import { log, type RequestContext } from '../../observability'
 import { invokeAnthropicMessages, invokeAnthropicMessagesStream } from '../../providers/anthropic/client'
+import { invokeOpenAIChat, invokeOpenAIChatStream } from '../../providers/openai/client'
 import { invokeOpenAIResponses, invokeOpenAIResponsesStream } from '../../providers/openai/responses-client'
 import { parseAnthropicMessagesRequest } from './parse'
 import { renderAnthropicMessagesResponse } from './render'
 import { renderAnthropicMessagesStream } from './stream'
+import { getConfig } from '../../config'
 
 export async function handleAnthropicMessages(request: Request, env: AppEnv, requestContext: RequestContext): Promise<Response> {
   const credential = parseRelayCredential(request)
@@ -26,6 +28,7 @@ export async function handleAnthropicMessages(request: Request, env: AppEnv, req
   }
 
   const provider = selectProvider(normalized)
+  const config = getConfig(env)
   assertMilestoneOneFeatureSupport(normalized, provider, 'messages')
   log(env, 'info', 'relay_request_resolved', {
     requestId: requestContext.requestId,
@@ -40,7 +43,9 @@ export async function handleAnthropicMessages(request: Request, env: AppEnv, req
       provider === 'anthropic'
         ? await invokeAnthropicMessagesStream(normalized, env)
         : provider === 'openai'
-          ? await invokeOpenAIResponsesStream(normalized, env)
+          ? config.openAIWireApi === 'chat_completions'
+            ? await invokeOpenAIChatStream(normalized, env)
+            : await invokeOpenAIResponsesStream(normalized, env)
           : (() => {
               throw new ValidationError(`Unsupported provider selected for Anthropic Messages route: ${provider}`)
             })()
@@ -72,7 +77,9 @@ export async function handleAnthropicMessages(request: Request, env: AppEnv, req
     provider === 'anthropic'
       ? await invokeAnthropicMessages(normalized, env)
       : provider === 'openai'
-        ? await invokeOpenAIResponses(normalized, env)
+        ? config.openAIWireApi === 'chat_completions'
+          ? await invokeOpenAIChat(normalized, env)
+          : await invokeOpenAIResponses(normalized, env)
         : (() => {
             throw new ValidationError(`Unsupported provider selected for Anthropic Messages route: ${provider}`)
           })()

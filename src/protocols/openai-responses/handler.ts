@@ -7,10 +7,12 @@ import { jsonResponse } from '../../lib/http'
 import { readJsonBody } from '../../lib/json'
 import { log, type RequestContext } from '../../observability'
 import { invokeAnthropicMessages, invokeAnthropicMessagesStream } from '../../providers/anthropic/client'
+import { invokeOpenAIChat, invokeOpenAIChatStream } from '../../providers/openai/client'
 import { invokeOpenAIResponses, invokeOpenAIResponsesStream } from '../../providers/openai/responses-client'
 import { parseOpenAIResponsesRequest } from './parse'
 import { renderOpenAIResponsesResponse } from './render'
 import { renderOpenAIResponsesStream } from './stream'
+import { getConfig } from '../../config'
 
 export async function handleOpenAIResponses(request: Request, env: AppEnv, requestContext: RequestContext): Promise<Response> {
   const credential = parseRelayCredential(request)
@@ -26,6 +28,7 @@ export async function handleOpenAIResponses(request: Request, env: AppEnv, reque
   }
 
   const provider = selectProvider(normalized)
+  const config = getConfig(env)
   assertMilestoneOneFeatureSupport(normalized, provider, 'responses')
   log(env, 'info', 'relay_request_resolved', {
     requestId: requestContext.requestId,
@@ -38,7 +41,9 @@ export async function handleOpenAIResponses(request: Request, env: AppEnv, reque
     const upstreamStartedAt = Date.now()
     const events =
       provider === 'openai'
-        ? await invokeOpenAIResponsesStream(normalized, env)
+        ? config.openAIWireApi === 'chat_completions'
+          ? await invokeOpenAIChatStream(normalized, env)
+          : await invokeOpenAIResponsesStream(normalized, env)
         : provider === 'anthropic'
           ? await invokeAnthropicMessagesStream(normalized, env)
           : (() => {
@@ -70,7 +75,9 @@ export async function handleOpenAIResponses(request: Request, env: AppEnv, reque
   const upstreamStartedAt = Date.now()
   const result =
     provider === 'openai'
-      ? await invokeOpenAIResponses(normalized, env)
+      ? config.openAIWireApi === 'chat_completions'
+        ? await invokeOpenAIChat(normalized, env)
+        : await invokeOpenAIResponses(normalized, env)
       : provider === 'anthropic'
         ? await invokeAnthropicMessages(normalized, env)
         : (() => {

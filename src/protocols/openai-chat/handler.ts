@@ -12,6 +12,7 @@ import type { AppEnv } from '../../env'
 import { log, type RequestContext } from '../../observability'
 import { renderOpenAIChatStream } from './stream'
 import { invokeOpenAIResponses, invokeOpenAIResponsesStream } from '../../providers/openai/responses-client'
+import { getConfig } from '../../config'
 
 export async function handleOpenAIChatCompletions(request: Request, env: AppEnv, requestContext: RequestContext): Promise<Response> {
   const credential = parseRelayCredential(request)
@@ -27,6 +28,7 @@ export async function handleOpenAIChatCompletions(request: Request, env: AppEnv,
   }
 
   const provider = selectProvider(normalized)
+  const config = getConfig(env)
   assertMilestoneOneFeatureSupport(normalized, provider, 'chat')
   log(env, 'info', 'relay_request_resolved', {
     requestId: requestContext.requestId,
@@ -39,7 +41,9 @@ export async function handleOpenAIChatCompletions(request: Request, env: AppEnv,
     const upstreamStartedAt = Date.now()
     const events =
       provider === 'openai'
-        ? await invokeOpenAIResponsesStream(normalized, env)
+        ? config.openAIWireApi === 'chat_completions'
+          ? await invokeOpenAIChatStream(normalized, env)
+          : await invokeOpenAIResponsesStream(normalized, env)
         : provider === 'anthropic'
           ? await invokeAnthropicMessagesStream(normalized, env)
           : (() => {
@@ -70,7 +74,9 @@ export async function handleOpenAIChatCompletions(request: Request, env: AppEnv,
   const upstreamStartedAt = Date.now()
   const result =
     provider === 'openai'
-      ? await invokeOpenAIResponses(normalized, env)
+      ? config.openAIWireApi === 'chat_completions'
+        ? await invokeOpenAIChat(normalized, env)
+        : await invokeOpenAIResponses(normalized, env)
       : provider === 'anthropic'
         ? await invokeAnthropicMessages(normalized, env)
         : (() => {

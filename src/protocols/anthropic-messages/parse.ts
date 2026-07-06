@@ -49,11 +49,59 @@ function normalizeSystem(system: string | Array<Record<string, unknown>> | undef
   return parseContentBlocks(system)
 }
 
-function normalizeMessages(messages: Array<{ role: 'user' | 'assistant'; content: string | Array<Record<string, unknown>> }>): NormalizedMessage[] {
-  return messages.map((message) => ({
-    role: message.role,
-    content: parseContentBlocks(message.content),
-  }))
+function normalizeMessages(
+  messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string | Array<Record<string, unknown>> }>,
+): { instructions: ContentBlock[]; messages: NormalizedMessage[] } {
+  const instructions: ContentBlock[] = []
+  const normalizedMessages: NormalizedMessage[] = []
+
+  for (const message of messages) {
+    const content = parseContentBlocks(message.content)
+    if (message.role === 'system') {
+      instructions.push(...content)
+      continue
+    }
+
+    if (message.role === 'user') {
+      let pendingUserContent: ContentBlock[] = []
+      for (const block of content) {
+        if (block.type === 'tool_result') {
+          if (pendingUserContent.length > 0) {
+            normalizedMessages.push({
+              role: 'user',
+              content: pendingUserContent,
+            })
+            pendingUserContent = []
+          }
+          normalizedMessages.push({
+            role: 'tool',
+            content: [block],
+          })
+          continue
+        }
+
+        pendingUserContent.push(block)
+      }
+
+      if (pendingUserContent.length > 0) {
+        normalizedMessages.push({
+          role: 'user',
+          content: pendingUserContent,
+        })
+      }
+      continue
+    }
+
+    normalizedMessages.push({
+      role: message.role,
+      content,
+    })
+  }
+
+  return {
+    instructions,
+    messages: normalizedMessages,
+  }
 }
 
 function normalizeTools(tools: Array<{ name: string; description?: string; input_schema: unknown }> | undefined): NormalizedTool[] | undefined {
@@ -84,12 +132,18 @@ export function parseAnthropicMessagesRequest(input: unknown): NormalizedRequest
   }
 
   const request = parsed.data
+  const normalizedMessages = normalizeMessages(
+    request.messages as Array<{ role: 'user' | 'assistant' | 'system'; content: string | Array<Record<string, unknown>> }>,
+  )
 
   return {
     targetModel: request.model,
     providerHint: request.providerHint,
-    instructions: normalizeSystem(request.system as string | Array<Record<string, unknown>> | undefined),
-    messages: normalizeMessages(request.messages as Array<{ role: 'user' | 'assistant'; content: string | Array<Record<string, unknown>> }>),
+    instructions: [
+      ...normalizeSystem(request.system as string | Array<Record<string, unknown>> | undefined),
+      ...normalizedMessages.instructions,
+    ],
+    messages: normalizedMessages.messages,
     tools: normalizeTools(request.tools as Array<{ name: string; description?: string; input_schema: unknown }> | undefined),
     toolChoice: normalizeToolChoice(request.tool_choice as { type: 'auto' | 'any' } | { type: 'tool'; name: string } | undefined),
     output: {

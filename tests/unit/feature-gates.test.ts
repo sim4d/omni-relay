@@ -74,7 +74,7 @@ describe('feature gating', () => {
     expect(body.text).toBeTruthy()
   })
 
-  it('allows OpenAI Responses custom tools on the same-provider route', async () => {
+  it('allows OpenAI Responses provider-native tools on the same-provider route', async () => {
     const fetchMock = vi.fn(async () =>
       new Response(
         JSON.stringify({
@@ -105,7 +105,11 @@ describe('feature gating', () => {
         body: JSON.stringify({
           model: 'glm-5.2',
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
-          tools: [{ type: 'custom', name: 'codex', description: 'Run local commands' }],
+          tools: [
+            { type: 'custom', name: 'codex', description: 'Run local commands' },
+            { type: 'namespace', name: 'multi_agent_v1', tools: [{ type: 'function', name: 'spawn_agent', parameters: { type: 'object' } }] },
+            { type: 'web_search', external_web_access: false },
+          ],
           tool_choice: { type: 'custom', name: 'codex' },
           reasoning: { effort: 'high' },
         }),
@@ -117,12 +121,16 @@ describe('feature gating', () => {
     expect(response.status).toBe(200)
     const [, init] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
     const body = JSON.parse(String(init.body)) as Record<string, unknown>
-    expect(body.tools).toEqual([{ type: 'custom', name: 'codex', description: 'Run local commands' }])
+    expect(body.tools).toEqual([
+      { type: 'custom', name: 'codex', description: 'Run local commands' },
+      { type: 'namespace', name: 'multi_agent_v1', tools: [{ type: 'function', name: 'spawn_agent', parameters: { type: 'object' } }] },
+      { type: 'web_search', external_web_access: false },
+    ])
     expect(body.tool_choice).toEqual({ type: 'custom', name: 'codex' })
     expect(body.reasoning).toEqual({ effort: 'high' })
   })
 
-  it('rejects OpenAI Responses custom tools on a cross-provider route', async () => {
+  it('rejects OpenAI Responses provider-native tools on a cross-provider route', async () => {
     vi.stubGlobal('fetch', vi.fn())
 
     const response = await worker.fetch(
@@ -133,7 +141,11 @@ describe('feature gating', () => {
           providerHint: 'anthropic',
           model: 'glm-4.7',
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
-          tools: [{ type: 'custom', name: 'codex', description: 'Run local commands' }],
+          tools: [
+            { type: 'custom', name: 'codex', description: 'Run local commands' },
+            { type: 'namespace', name: 'multi_agent_v1', tools: [{ type: 'function', name: 'spawn_agent', parameters: { type: 'object' } }] },
+            { type: 'web_search', external_web_access: false },
+          ],
         }),
       }),
       { ENVIRONMENT: 'test', ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },

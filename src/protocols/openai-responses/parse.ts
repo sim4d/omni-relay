@@ -53,6 +53,22 @@ function parseInput(input: string | Array<Record<string, unknown>>): { instructi
   const messages: NormalizedMessage[] = []
 
   for (const item of input) {
+    if ((item.type === 'function_call' || item.type === 'tool_call') && typeof item.name === 'string') {
+      messages.push({
+        role: 'assistant',
+        content: parseContentArray([item]),
+      })
+      continue
+    }
+
+    if ((item.type === 'function_call_output' || item.type === 'tool_result') && typeof item.call_id === 'string') {
+      messages.push({
+        role: 'tool',
+        content: parseContentArray([item]),
+      })
+      continue
+    }
+
     const role = typeof item.role === 'string' ? item.role : 'user'
     const content =
       typeof item.content === 'string'
@@ -82,12 +98,12 @@ function parseInput(input: string | Array<Record<string, unknown>>): { instructi
 
 function normalizeTools(tools: Array<Record<string, unknown>> | undefined): {
   functionTools?: NormalizedTool[]
-  customTools?: Array<Record<string, unknown>>
+  providerNativeTools?: Array<Record<string, unknown>>
 } {
   if (!tools?.length) return {}
 
   const functionTools: NormalizedTool[] = []
-  const customTools: Array<Record<string, unknown>> = []
+  const providerNativeTools: Array<Record<string, unknown>> = []
 
   for (const tool of tools) {
     if (tool.type === 'function') {
@@ -100,8 +116,8 @@ function normalizeTools(tools: Array<Record<string, unknown>> | undefined): {
       continue
     }
 
-    if (tool.type === 'custom') {
-      customTools.push(tool)
+    if (typeof tool.type === 'string' && tool.type.length > 0) {
+      providerNativeTools.push(tool)
       continue
     }
 
@@ -110,7 +126,7 @@ function normalizeTools(tools: Array<Record<string, unknown>> | undefined): {
 
   return {
     functionTools: functionTools.length > 0 ? functionTools : undefined,
-    customTools: customTools.length > 0 ? customTools : undefined,
+    providerNativeTools: providerNativeTools.length > 0 ? providerNativeTools : undefined,
   }
 }
 
@@ -181,7 +197,7 @@ export function parseOpenAIResponsesRequest(input: unknown): NormalizedRequest {
       openai: {
         ingressProtocol: 'responses',
         text,
-        ...(normalizedTools.customTools ? { customTools: normalizedTools.customTools } : {}),
+        ...(normalizedTools.providerNativeTools ? { providerNativeTools: normalizedTools.providerNativeTools } : {}),
         ...(Object.keys(unmappedRequestFields).length > 0 ? { unmappedRequestFields } : {}),
       },
     },

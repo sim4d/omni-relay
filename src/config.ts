@@ -16,6 +16,6 @@ export function getConfig(env: AppEnv): AppConfig {
     debugRoutesEnabled:
       env.ENABLE_DEBUG_ROUTES === 'true'
       || ((env.ENVIRONMENT ?? 'development') !== 'production' && env.ENABLE_DEBUG_ROUTES !== 'false'),
-    openAIWireApi: 'responses',
+    openAIWireApi: env.OPENAI_WIRE_API === 'chat_completions' ? 'chat_completions' : 'responses',
   }
 }

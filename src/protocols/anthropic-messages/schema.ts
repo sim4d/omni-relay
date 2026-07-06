@@ -5,7 +5,7 @@ export const anthropicContentBlockSchema = z.object({
 }).passthrough()
 
 export const anthropicMessageSchema = z.object({
-  role: z.enum(['user', 'assistant']),
+  role: z.enum(['user', 'assistant', 'system']),
   content: z.union([
     z.string(),
     z.array(anthropicContentBlockSchema),

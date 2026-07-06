@@ -34,14 +34,22 @@ describe('provider adapter mapping', () => {
       extensions: {
         openai: {
           ingressProtocol: 'responses',
-          customTools: [{ type: 'custom', name: 'codex', description: 'Run commands' }],
+          providerNativeTools: [
+            { type: 'custom', name: 'codex', description: 'Run commands' },
+            { type: 'namespace', name: 'multi_agent_v1', tools: [{ type: 'function', name: 'spawn_agent', parameters: { type: 'object' } }] },
+            { type: 'web_search', external_web_access: false },
+          ],
           unmappedRequestFields: { reasoning: { effort: 'high' }, parallel_tool_calls: false },
         },
       },
     })
     const payloadRecord = payload as Record<string, unknown>
 
-    expect(payload.tools).toEqual([{ type: 'custom', name: 'codex', description: 'Run commands' }])
+    expect(payload.tools).toEqual([
+      { type: 'custom', name: 'codex', description: 'Run commands' },
+      { type: 'namespace', name: 'multi_agent_v1', tools: [{ type: 'function', name: 'spawn_agent', parameters: { type: 'object' } }] },
+      { type: 'web_search', external_web_access: false },
+    ])
     expect(payload.tool_choice).toEqual({ type: 'custom', name: 'codex' })
     expect(payloadRecord.reasoning).toEqual({ effort: 'high' })
     expect(payloadRecord.parallel_tool_calls).toBe(false)

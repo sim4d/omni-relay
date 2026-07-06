@@ -7,6 +7,66 @@ async function* toOpenAIResponsesSSE(events: AsyncIterable<NormalizedEvent>): As
   let outputIndex = 0
   const toolIndices = new Map<string, { outputIndex: number; toolType?: 'function' | 'custom'; callId: string; input: string; name: string }>()
   let sawToolCall = false
+  let activeTextItem:
+    | {
+        itemId: string
+        outputIndex: number
+        contentIndex: number
+        text: string
+      }
+    | undefined
+
+  const finalizeActiveTextItem = async function* (): AsyncGenerator<SSEMessage> {
+    if (!activeTextItem) return
+
+    yield {
+      event: 'response.output_text.done',
+      data: JSON.stringify({
+        type: 'response.output_text.done',
+        response_id: id,
+        item_id: activeTextItem.itemId,
+        output_index: activeTextItem.outputIndex,
+        content_index: activeTextItem.contentIndex,
+        text: activeTextItem.text,
+      }),
+    }
+    yield {
+      event: 'response.content_part.done',
+      data: JSON.stringify({
+        type: 'response.content_part.done',
+        response_id: id,
+        item_id: activeTextItem.itemId,
+        output_index: activeTextItem.outputIndex,
+        content_index: activeTextItem.contentIndex,
+        part: {
+          type: 'text',
+          text: activeTextItem.text,
+        },
+      }),
+    }
+    yield {
+      event: 'response.output_item.done',
+      data: JSON.stringify({
+        type: 'response.output_item.done',
+        response_id: id,
+        output_index: activeTextItem.outputIndex,
+        item: {
+          id: activeTextItem.itemId,
+          type: 'message',
+          role: 'assistant',
+          status: 'completed',
+          content: [
+            {
+              type: 'output_text',
+              text: activeTextItem.text,
+              annotations: [],
+            },
+          ],
+        },
+      }),
+    }
+    activeTextItem = undefined
+  }
 
   for await (const event of events) {
     if (event.type === 'response_start') {
@@ -27,11 +87,53 @@ async function* toOpenAIResponsesSSE(events: AsyncIterable<NormalizedEvent>): As
     }
 
     if (event.type === 'content_delta') {
+      if (!activeTextItem) {
+        activeTextItem = {
+          itemId: `msg_${crypto.randomUUID().replace(/-/g, '')}`,
+          outputIndex: outputIndex++,
+          contentIndex: 0,
+          text: '',
+        }
+        yield {
+          event: 'response.output_item.added',
+          data: JSON.stringify({
+            type: 'response.output_item.added',
+            response_id: id,
+            output_index: activeTextItem.outputIndex,
+            item: {
+              id: activeTextItem.itemId,
+              type: 'message',
+              role: 'assistant',
+              status: 'in_progress',
+              content: [],
+            },
+          }),
+        }
+        yield {
+          event: 'response.content_part.added',
+          data: JSON.stringify({
+            type: 'response.content_part.added',
+            response_id: id,
+            item_id: activeTextItem.itemId,
+            output_index: activeTextItem.outputIndex,
+            content_index: activeTextItem.contentIndex,
+            part: {
+              type: 'text',
+              text: '',
+            },
+          }),
+        }
+      }
+
+      activeTextItem.text += event.text
       yield {
         event: 'response.output_text.delta',
         data: JSON.stringify({
           type: 'response.output_text.delta',
           response_id: id,
+          item_id: activeTextItem.itemId,
+          output_index: activeTextItem.outputIndex,
+          content_index: activeTextItem.contentIndex,
           delta: event.text,
         }),
       }
@@ -39,6 +141,7 @@ async function* toOpenAIResponsesSSE(events: AsyncIterable<NormalizedEvent>): As
     }
 
     if (event.type === 'tool_call_start') {
+      yield* finalizeActiveTextItem()
       sawToolCall = true
       const currentIndex = outputIndex++
       const toolType = event.toolType === 'custom' ? 'custom' : 'function'
@@ -73,8 +176,10 @@ async function* toOpenAIResponsesSSE(events: AsyncIterable<NormalizedEvent>): As
 
     if (event.type === 'tool_call_delta') {
       const toolMeta = toolIndices.get(event.id)
-      if (toolMeta?.toolType === 'custom') {
+      if (toolMeta) {
         toolMeta.input += event.argumentsDelta
+      }
+      if (toolMeta?.toolType === 'custom') {
         yield {
           event: 'response.custom_tool_call_input.delta',
           data: JSON.stringify({
@@ -94,7 +199,7 @@ async function* toOpenAIResponsesSSE(events: AsyncIterable<NormalizedEvent>): As
           type: 'response.function_call_arguments.delta',
           response_id: id,
           item_id: event.id,
-          call_id: event.id,
+          output_index: toolMeta?.outputIndex ?? 0,
           delta: event.argumentsDelta,
         }),
       }
@@ -135,6 +240,16 @@ async function* toOpenAIResponsesSSE(events: AsyncIterable<NormalizedEvent>): As
       }
 
       yield {
+        event: 'response.function_call_arguments.done',
+        data: JSON.stringify({
+          type: 'response.function_call_arguments.done',
+          response_id: id,
+          item_id: event.id,
+          output_index: currentIndex,
+          arguments: toolMeta?.input ?? '',
+        }),
+      }
+      yield {
         event: 'response.output_item.done',
         data: JSON.stringify({
           type: 'response.output_item.done',
@@ -144,6 +259,8 @@ async function* toOpenAIResponsesSSE(events: AsyncIterable<NormalizedEvent>): As
             type: 'function_call',
             id: event.id,
             call_id: toolMeta?.callId ?? event.id,
+            name: toolMeta?.name ?? 'function',
+            arguments: toolMeta?.input ?? '',
           },
         }),
       }
@@ -152,6 +269,8 @@ async function* toOpenAIResponsesSSE(events: AsyncIterable<NormalizedEvent>): As
     }
 
     if (event.type === 'response_end') {
+      yield* finalizeActiveTextItem()
+
       yield {
         event: 'response.completed',
         data: JSON.stringify({

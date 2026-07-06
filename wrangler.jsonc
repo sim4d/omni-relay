@@ -10,6 +10,7 @@
   "vars": {
     "ENVIRONMENT": "production",
     "OPENAI_BASE_URL": "https://open.bigmodel.cn/api/coding/paas/v4",
+    "OPENAI_WIRE_API": "chat_completions",
     "ANTHROPIC_BASE_URL": "https://open.bigmodel.cn/api/anthropic/v1",
     "ENABLE_DEBUG_ROUTES": "false",
     "RATE_LIMIT_MAX": "60",
@@ -43,6 +44,7 @@
       "vars": {
         "ENVIRONMENT": "staging",
         "OPENAI_BASE_URL": "https://open.bigmodel.cn/api/coding/paas/v4",
+        "OPENAI_WIRE_API": "chat_completions",
         "ANTHROPIC_BASE_URL": "https://open.bigmodel.cn/api/anthropic/v1",
         "ENABLE_DEBUG_ROUTES": "true",
         "RATE_LIMIT_MAX": "2",

@@ -110,6 +110,63 @@ describe('POST /v1/responses', () => {
     expect(output[0]?.input).toBe('pwd')
   })
 
+  it('can serve the OpenAI Responses route through an OpenAI chat-completions upstream', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          id: 'chatcmpl_123',
+          object: 'chat.completion',
+          model: 'glm-5.2',
+          choices: [
+            {
+              index: 0,
+              finish_reason: 'stop',
+              message: {
+                role: 'assistant',
+                content: 'omni relay ok via chat upstream',
+              },
+            },
+          ],
+          usage: {
+            prompt_tokens: 3,
+            completion_tokens: 4,
+            total_tokens: 7,
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/responses', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: 'glm-5.2',
+          input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
+          tools: [
+            { type: 'custom', name: 'apply_patch', description: 'Freeform patch tool' },
+            { type: 'namespace', name: 'multi_agent_v1', tools: [{ type: 'function', name: 'spawn_agent', parameters: { type: 'object' } }] },
+          ],
+        }),
+      }),
+      {
+        ...env,
+        OPENAI_WIRE_API: 'chat_completions',
+      },
+      ctx,
+    )
+
+    expect(response.status).toBe(200)
+    const [url] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
+    expect(url).toBe('https://openai.example/v1/chat/completions')
+    const payload = await response.json() as Record<string, unknown>
+    expect(payload.object).toBe('response')
+    expect(payload.output_text).toBe('omni relay ok via chat upstream')
+  })
+
   it('fails clearly when OPENAI_BASE_URL is missing', async () => {
     vi.stubGlobal('fetch', vi.fn())
 

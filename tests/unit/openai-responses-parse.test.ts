@@ -29,7 +29,7 @@ describe('parseOpenAIResponsesRequest', () => {
     expect(normalized.output?.maxOutputTokens).toBe(64)
   })
 
-  it('preserves OpenAI Responses custom tools, custom tool choice, and same-provider request fields', () => {
+  it('preserves OpenAI Responses provider-native tools, custom tool choice, and same-provider request fields', () => {
     const normalized = parseOpenAIResponsesRequest({
       model: 'glm-5.2',
       input: [
@@ -45,6 +45,16 @@ describe('parseOpenAIResponsesRequest', () => {
           description: 'Run a Codex-native tool',
           format: { type: 'grammar', syntax: 'lark', definition: 'start: /.+/' },
         },
+        {
+          type: 'namespace',
+          name: 'multi_agent_v1',
+          description: 'Tools for sub-agents',
+          tools: [{ type: 'function', name: 'spawn_agent', parameters: { type: 'object' } }],
+        },
+        {
+          type: 'web_search',
+          external_web_access: false,
+        },
       ],
       tool_choice: { type: 'custom', name: 'codex' },
       parallel_tool_calls: false,
@@ -53,17 +63,61 @@ describe('parseOpenAIResponsesRequest', () => {
 
     expect(normalized.tools).toBeUndefined()
     expect(normalized.toolChoice).toEqual({ type: 'tool', name: 'codex', toolType: 'custom' })
-    expect(normalized.extensions?.openai?.customTools).toEqual([
+    expect(normalized.extensions?.openai?.providerNativeTools).toEqual([
       {
         type: 'custom',
         name: 'codex',
         description: 'Run a Codex-native tool',
         format: { type: 'grammar', syntax: 'lark', definition: 'start: /.+/' },
       },
+      {
+        type: 'namespace',
+        name: 'multi_agent_v1',
+        description: 'Tools for sub-agents',
+        tools: [{ type: 'function', name: 'spawn_agent', parameters: { type: 'object' } }],
+      },
+      {
+        type: 'web_search',
+        external_web_access: false,
+      },
     ])
     expect(normalized.extensions?.openai?.unmappedRequestFields).toEqual({
       parallel_tool_calls: false,
       reasoning: { effort: 'high' },
     })
+  })
+
+  it('maps top-level function_call and function_call_output items into assistant/tool messages', () => {
+    const normalized = parseOpenAIResponsesRequest({
+      model: 'glm-5.2',
+      input: [
+        {
+          role: 'user',
+          content: [{ type: 'input_text', text: 'Explain this project' }],
+        },
+        {
+          role: 'assistant',
+          content: [{ type: 'output_text', text: 'Let me inspect the repo.' }],
+        },
+        {
+          type: 'function_call',
+          name: 'exec_command',
+          arguments: '{"cmd":"ls -la"}',
+          call_id: 'call_1',
+        },
+        {
+          type: 'function_call_output',
+          call_id: 'call_1',
+          output: 'total 10',
+        },
+      ],
+    })
+
+    expect(normalized.messages).toEqual([
+      { role: 'user', content: [{ type: 'text', text: 'Explain this project' }] },
+      { role: 'assistant', content: [{ type: 'text', text: 'Let me inspect the repo.' }] },
+      { role: 'assistant', content: [{ type: 'tool_call', id: 'call_1', name: 'exec_command', argumentsJson: '{"cmd":"ls -la"}' }] },
+      { role: 'tool', content: [{ type: 'tool_result', toolCallId: 'call_1', result: 'total 10' }] },
+    ])
   })
 })

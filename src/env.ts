@@ -17,6 +17,7 @@ export interface RelayRateLimiterDurableObjectNamespace {
 export interface AppEnv {
   ENVIRONMENT: 'development' | 'staging' | 'production' | (string & {})
   OPENAI_BASE_URL?: string
+  OPENAI_WIRE_API?: 'responses' | 'chat_completions' | (string & {})
   ANTHROPIC_BASE_URL?: string
   ENABLE_DEBUG_ROUTES?: string
   RATE_LIMIT_MAX?: string
