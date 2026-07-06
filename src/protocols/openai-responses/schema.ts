@@ -12,6 +12,7 @@ export const openAIResponsesToolSchema = z.object({
 
 export const openAIResponsesRequestSchema = z.object({
   model: z.string().min(1),
+  providerHint: z.enum(['openai', 'anthropic', 'auto']).optional(),
   input: z.union([
     z.string(),
     z.array(openAIResponsesInputItemSchema),

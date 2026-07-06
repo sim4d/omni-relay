@@ -28,6 +28,7 @@ export const anthropicToolChoiceSchema = z.union([
 
 export const anthropicMessagesRequestSchema = z.object({
   model: z.string().min(1),
+  providerHint: z.enum(['openai', 'anthropic', 'auto']).optional(),
   max_tokens: z.number().int().positive(),
   messages: z.array(anthropicMessageSchema).min(1),
   system: z.union([

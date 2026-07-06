@@ -5,6 +5,11 @@ export type BearerToken = {
   token: string
 }
 
+export type RelayCredential = {
+  source: 'authorization' | 'x-api-key'
+  token: string
+}
+
 export function parseAuthorizationHeader(request: Request): BearerToken | null {
   const value = request.headers.get('authorization')
   if (!value) return null
@@ -13,6 +18,26 @@ export function parseAuthorizationHeader(request: Request): BearerToken | null {
   if (scheme !== 'Bearer' || !token) return null
 
   return { scheme: 'Bearer', token }
+}
+
+export function parseRelayCredential(request: Request): RelayCredential | null {
+  const bearer = parseAuthorizationHeader(request)
+  if (bearer) {
+    return {
+      source: 'authorization',
+      token: bearer.token,
+    }
+  }
+
+  const apiKey = request.headers.get('x-api-key')?.trim()
+  if (apiKey) {
+    return {
+      source: 'x-api-key',
+      token: apiKey,
+    }
+  }
+
+  return null
 }
 
 export function isAuthenticationConfigured(env: AppEnv): boolean {

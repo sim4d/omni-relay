@@ -7,17 +7,24 @@ import { mapAnthropicMessagesResponseToNormalizedResult } from './map-response'
 import { mapAnthropicStreamToEvents } from './map-stream'
 
 export async function invokeAnthropicMessages(request: NormalizedRequest, env: AppEnv): Promise<NormalizedResult> {
-  if (!env.ANTHROPIC_API_KEY) {
-    throw new AuthenticationError('ANTHROPIC_API_KEY is not configured in the Worker environment')
+  if (!env.ANTHROPIC_API_KEY && !env.ANTHROPIC_AUTH_TOKEN) {
+    throw new AuthenticationError('Neither ANTHROPIC_API_KEY nor ANTHROPIC_AUTH_TOKEN is configured in the Worker environment')
+  }
+
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+    'anthropic-version': '2023-06-01',
+  }
+  if (env.ANTHROPIC_AUTH_TOKEN) {
+    headers.authorization = `Bearer ${env.ANTHROPIC_AUTH_TOKEN}`
+  }
+  if (env.ANTHROPIC_API_KEY) {
+    headers['x-api-key'] = env.ANTHROPIC_API_KEY
   }
 
   const upstream = await fetch(`${env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com/v1'}/messages`, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
+    headers,
     body: JSON.stringify(mapNormalizedRequestToAnthropicMessagesRequest(request)),
   })
 
@@ -34,17 +41,24 @@ export async function invokeAnthropicMessages(request: NormalizedRequest, env: A
 }
 
 export async function invokeAnthropicMessagesStream(request: NormalizedRequest, env: AppEnv): Promise<AsyncIterable<import('../../core/stream-events').NormalizedEvent>> {
-  if (!env.ANTHROPIC_API_KEY) {
-    throw new AuthenticationError('ANTHROPIC_API_KEY is not configured in the Worker environment')
+  if (!env.ANTHROPIC_API_KEY && !env.ANTHROPIC_AUTH_TOKEN) {
+    throw new AuthenticationError('Neither ANTHROPIC_API_KEY nor ANTHROPIC_AUTH_TOKEN is configured in the Worker environment')
+  }
+
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+    'anthropic-version': '2023-06-01',
+  }
+  if (env.ANTHROPIC_AUTH_TOKEN) {
+    headers.authorization = `Bearer ${env.ANTHROPIC_AUTH_TOKEN}`
+  }
+  if (env.ANTHROPIC_API_KEY) {
+    headers['x-api-key'] = env.ANTHROPIC_API_KEY
   }
 
   const upstream = await fetch(`${env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com/v1'}/messages`, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
+    headers,
     body: JSON.stringify({
       ...mapNormalizedRequestToAnthropicMessagesRequest(request),
       stream: true,

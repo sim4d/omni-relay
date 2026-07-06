@@ -122,11 +122,12 @@ export function parseOpenAIChatRequest(input: unknown): NormalizedRequest {
   }
 
   const request = parsed.data
-  const { model, messages, tools, tool_choice, stream, temperature, max_completion_tokens, max_tokens, stop, ...rest } = request
+  const { model, providerHint, messages, tools, tool_choice, stream, temperature, max_completion_tokens, max_tokens, stop, ...rest } = request
   const normalizedMessages = normalizeMessages(messages)
 
   return {
     targetModel: model,
+    providerHint,
     instructions: normalizedMessages.instructions,
     messages: normalizedMessages.messages,
     tools: normalizeTools(tools),

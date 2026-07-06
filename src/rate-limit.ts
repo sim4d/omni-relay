@@ -1,11 +1,11 @@
-import { parseAuthorizationHeader } from './auth'
+import { parseRelayCredential } from './auth'
 import { RateLimitExceededError } from './errors'
 import type { AppEnv } from './env'
 
 function getRateLimitKey(request: Request): string {
-  const bearer = parseAuthorizationHeader(request)
-  if (bearer?.token) {
-    return `bearer:${bearer.token}`
+  const credential = parseRelayCredential(request)
+  if (credential?.token) {
+    return `credential:${credential.token}`
   }
 
   const ip =

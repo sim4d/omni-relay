@@ -5,6 +5,7 @@ export type AppConfig = {
   openaiBaseUrl: string
   anthropicBaseUrl: string
   debugRoutesEnabled: boolean
+  openAIWireApi: 'responses' | 'chat_completions'
 }
 
 export function getConfig(env: AppEnv): AppConfig {
@@ -15,5 +16,6 @@ export function getConfig(env: AppEnv): AppConfig {
     debugRoutesEnabled:
       env.ENABLE_DEBUG_ROUTES === 'true'
       || ((env.ENVIRONMENT ?? 'development') !== 'production' && env.ENABLE_DEBUG_ROUTES !== 'false'),
+    openAIWireApi: 'responses',
   }
 }

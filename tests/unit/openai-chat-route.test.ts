@@ -11,25 +11,22 @@ describe('POST /v1/chat/completions', () => {
     passThroughOnException() {},
   } as unknown as ExecutionContext
 
-  it('calls OpenAI upstream and returns a chat completion payload', async () => {
+  it('calls OpenAI Responses upstream and renders a chat completion payload', async () => {
     const fetchMock = vi.fn(async () =>
       new Response(
         JSON.stringify({
-          id: 'chatcmpl_upstream_1',
-          object: 'chat.completion',
+          id: 'resp_upstream_1',
+          object: 'response',
           model: 'gpt-5-mini',
-          choices: [
+          status: 'completed',
+          output: [
             {
-              index: 0,
-              message: { role: 'assistant', content: 'Hello from upstream' },
-              finish_reason: 'stop',
+              type: 'message',
+              role: 'assistant',
+              content: [{ type: 'output_text', text: 'Hello from upstream' }],
             },
           ],
-          usage: {
-            prompt_tokens: 5,
-            completion_tokens: 4,
-            total_tokens: 9,
-          },
+          usage: { input_tokens: 5, output_tokens: 4, total_tokens: 9 },
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       ),
@@ -54,7 +51,7 @@ describe('POST /v1/chat/completions', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
 
     const [url, init] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
-    expect(url).toBe('https://api.openai.com/v1/chat/completions')
+    expect(url).toBe('https://api.openai.com/v1/responses')
     expect(init.method).toBe('POST')
 
     const payload = await response.json() as Record<string, unknown>
@@ -89,9 +86,14 @@ describe('POST /v1/chat/completions', () => {
       start(controller) {
         controller.enqueue(
           new TextEncoder().encode(
-            'data: {\"id\":\"chatcmpl_stream_1\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-5-mini\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"omni \"},\"finish_reason\":null}]}\\n\\n' +
-            'data: {\"id\":\"chatcmpl_stream_1\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-5-mini\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"relay ok\"},\"finish_reason\":\"stop\"}]}\\n\\n' +
-            'data: [DONE]\\n\\n',
+            'event: response.created\\n' +
+            'data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_1\",\"model\":\"gpt-5-mini\"}}\\n\\n' +
+            'event: response.output_text.delta\\n' +
+            'data: {\"type\":\"response.output_text.delta\",\"delta\":\"omni \"}\\n\\n' +
+            'event: response.output_text.delta\\n' +
+            'data: {\"type\":\"response.output_text.delta\",\"delta\":\"relay ok\"}\\n\\n' +
+            'event: response.completed\\n' +
+            'data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_1\"}}\\n\\n',
           ),
         )
         controller.close()

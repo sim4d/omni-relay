@@ -121,6 +121,7 @@ export function parseOpenAIResponsesRequest(input: unknown): NormalizedRequest {
 
   return {
     targetModel: request.model,
+    providerHint: request.providerHint,
     instructions: [
       ...(request.instructions ? [textBlock(request.instructions)] : []),
       ...normalizedInput.instructions,

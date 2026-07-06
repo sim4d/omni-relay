@@ -14,5 +14,6 @@ export interface AppEnv {
   RELAY_API_KEY?: string
   OPENAI_API_KEY?: string
   ANTHROPIC_API_KEY?: string
+  ANTHROPIC_AUTH_TOKEN?: string
   RATE_LIMITER?: RateLimiterBinding
 }

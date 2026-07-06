@@ -87,6 +87,7 @@ export function parseAnthropicMessagesRequest(input: unknown): NormalizedRequest
 
   return {
     targetModel: request.model,
+    providerHint: request.providerHint,
     instructions: normalizeSystem(request.system as string | Array<Record<string, unknown>> | undefined),
     messages: normalizeMessages(request.messages as Array<{ role: 'user' | 'assistant'; content: string | Array<Record<string, unknown>> }>),
     tools: normalizeTools(request.tools as Array<{ name: string; description?: string; input_schema: unknown }> | undefined),

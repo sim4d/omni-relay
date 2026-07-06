@@ -6,31 +6,24 @@ describe('custom tool support', () => {
     passThroughOnException() {},
   } as unknown as ExecutionContext
 
-  it('renders OpenAI chat tool calls from an OpenAI upstream tool response', async () => {
+  it('renders OpenAI chat tool calls from an OpenAI Responses upstream tool response', async () => {
     const fetchMock = vi.fn(async () =>
       new Response(
         JSON.stringify({
-          id: 'chatcmpl_tool_1',
-          object: 'chat.completion',
+          id: 'resp_tool_1',
+          object: 'response',
           model: 'gpt-5-mini',
-          choices: [
+          status: 'completed',
+          output: [
             {
-              index: 0,
-              message: {
-                role: 'assistant',
-                content: null,
-                tool_calls: [
-                  {
-                    id: 'call_1',
-                    type: 'function',
-                    function: { name: 'lookup_weather', arguments: '{"city":"Paris"}' },
-                  },
-                ],
-              },
-              finish_reason: 'tool_calls',
+              type: 'function_call',
+              id: 'call_1',
+              call_id: 'call_1',
+              name: 'lookup_weather',
+              arguments: '{"city":"Paris"}',
             },
           ],
-          usage: { prompt_tokens: 8, completion_tokens: 5, total_tokens: 13 },
+          usage: { input_tokens: 8, output_tokens: 5, total_tokens: 13 },
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       ),

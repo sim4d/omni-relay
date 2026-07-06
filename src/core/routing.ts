@@ -1,7 +1,7 @@
 import { ProviderSelectionError } from '../errors'
 import type { NormalizedRequest, ProviderId } from './ir'
 
-const OPENAI_MODEL_PREFIXES = ['gpt-', 'o', 'text-embedding-']
+const OPENAI_MODEL_PREFIXES = ['gpt-', 'o', 'text-embedding-', 'glm-', 'kimi-', 'minimax-']
 const ANTHROPIC_MODEL_PREFIXES = ['claude-']
 
 export function selectProvider(request: Pick<NormalizedRequest, 'targetModel' | 'providerHint'>): ProviderId {
@@ -9,11 +9,13 @@ export function selectProvider(request: Pick<NormalizedRequest, 'targetModel' | 
     return request.providerHint
   }
 
-  if (OPENAI_MODEL_PREFIXES.some((prefix) => request.targetModel.startsWith(prefix))) {
+  const model = request.targetModel.toLowerCase()
+
+  if (OPENAI_MODEL_PREFIXES.some((prefix) => model.startsWith(prefix))) {
     return 'openai'
   }
 
-  if (ANTHROPIC_MODEL_PREFIXES.some((prefix) => request.targetModel.startsWith(prefix))) {
+  if (ANTHROPIC_MODEL_PREFIXES.some((prefix) => model.startsWith(prefix))) {
     return 'anthropic'
   }
 

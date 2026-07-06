@@ -1,5 +1,5 @@
 import { AuthenticationError, AuthorizationError, ValidationError } from '../errors'
-import { parseAuthorizationHeader, validateRelayAuthorization } from '../auth'
+import { parseRelayCredential, validateRelayAuthorization } from '../auth'
 import { selectProvider } from '../core/routing'
 import type { AppEnv } from '../env'
 import { jsonResponse } from '../lib/http'
@@ -14,8 +14,8 @@ export async function handleDebugTranslate(request: Request, env: AppEnv, reques
     throw new AuthorizationError('Debug route requires RELAY_API_KEY to be configured')
   }
 
-  const bearer = parseAuthorizationHeader(request)
-  if (!validateRelayAuthorization(env, bearer?.token)) {
+  const credential = parseRelayCredential(request)
+  if (!validateRelayAuthorization(env, credential?.token)) {
     throw new AuthenticationError('Invalid relay API key')
   }
 

@@ -18,8 +18,8 @@
       "name": "relayx-staging",
       "vars": {
         "ENVIRONMENT": "staging",
-        "OPENAI_BASE_URL": "https://api.openai.com/v1",
-        "ANTHROPIC_BASE_URL": "https://api.anthropic.com/v1",
+        "OPENAI_BASE_URL": "https://cpa.sim4ai.ccwu.cc/v1",
+        "ANTHROPIC_BASE_URL": "https://open.bigmodel.cn/api/anthropic/v1",
         "ENABLE_DEBUG_ROUTES": "true"
       },
       "ratelimits": [

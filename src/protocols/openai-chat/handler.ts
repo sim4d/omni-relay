@@ -1,7 +1,7 @@
 import { AuthenticationError, ValidationError } from '../../errors'
 import { assertMilestoneOneFeatureSupport } from '../../core/feature-gates'
 import { selectProvider } from '../../core/routing'
-import { parseAuthorizationHeader, validateRelayAuthorization } from '../../auth'
+import { parseRelayCredential, validateRelayAuthorization } from '../../auth'
 import { readJsonBody } from '../../lib/json'
 import { jsonResponse } from '../../lib/http'
 import { renderOpenAIChatResponse } from './render'
@@ -11,10 +11,11 @@ import { invokeAnthropicMessages, invokeAnthropicMessagesStream } from '../../pr
 import type { AppEnv } from '../../env'
 import { log, type RequestContext } from '../../observability'
 import { renderOpenAIChatStream } from './stream'
+import { invokeOpenAIResponses, invokeOpenAIResponsesStream } from '../../providers/openai/responses-client'
 
 export async function handleOpenAIChatCompletions(request: Request, env: AppEnv, requestContext: RequestContext): Promise<Response> {
-  const bearer = parseAuthorizationHeader(request)
-  if (!validateRelayAuthorization(env, bearer?.token)) {
+  const credential = parseRelayCredential(request)
+  if (!validateRelayAuthorization(env, credential?.token)) {
     throw new AuthenticationError('Invalid relay API key')
   }
 
@@ -37,7 +38,7 @@ export async function handleOpenAIChatCompletions(request: Request, env: AppEnv,
   if (normalized.stream) {
     const events =
       provider === 'openai'
-        ? await invokeOpenAIChatStream(normalized, env)
+        ? await invokeOpenAIResponsesStream(normalized, env)
         : provider === 'anthropic'
           ? await invokeAnthropicMessagesStream(normalized, env)
           : (() => {
@@ -57,7 +58,7 @@ export async function handleOpenAIChatCompletions(request: Request, env: AppEnv,
 
   const result =
     provider === 'openai'
-      ? await invokeOpenAIChat(normalized, env)
+      ? await invokeOpenAIResponses(normalized, env)
       : provider === 'anthropic'
         ? await invokeAnthropicMessages(normalized, env)
         : (() => {

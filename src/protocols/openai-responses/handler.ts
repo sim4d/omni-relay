@@ -1,5 +1,5 @@
 import { AuthenticationError, ValidationError } from '../../errors'
-import { parseAuthorizationHeader, validateRelayAuthorization } from '../../auth'
+import { parseRelayCredential, validateRelayAuthorization } from '../../auth'
 import { assertMilestoneOneFeatureSupport } from '../../core/feature-gates'
 import { selectProvider } from '../../core/routing'
 import type { AppEnv } from '../../env'
@@ -13,8 +13,8 @@ import { renderOpenAIResponsesResponse } from './render'
 import { renderOpenAIResponsesStream } from './stream'
 
 export async function handleOpenAIResponses(request: Request, env: AppEnv, requestContext: RequestContext): Promise<Response> {
-  const bearer = parseAuthorizationHeader(request)
-  if (!validateRelayAuthorization(env, bearer?.token)) {
+  const credential = parseRelayCredential(request)
+  if (!validateRelayAuthorization(env, credential?.token)) {
     throw new AuthenticationError('Invalid relay API key')
   }
 

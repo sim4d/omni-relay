@@ -45,6 +45,7 @@ export const openAIChatToolChoiceSchema = z.union([
 
 export const openAIChatRequestSchema = z.object({
   model: z.string().min(1),
+  providerHint: z.enum(['openai', 'anthropic', 'auto']).optional(),
   messages: z.array(openAIChatMessageSchema).min(1),
   tools: z.array(openAIChatToolSchema).optional(),
   tool_choice: openAIChatToolChoiceSchema.optional(),
