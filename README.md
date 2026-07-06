@@ -1,2 +1,34 @@
 # omni-relay
-A universal LLM API relay and protocol translator for OpenAI, Anthropic, Gemini, and compatible providers, built for Cloudflare Workers.
+
+A universal LLM API relay and protocol translator for OpenAI and Anthropic, built for Cloudflare Workers.
+
+## MVP scope
+
+The current MVP focuses on:
+- OpenAI Chat Completions ingress
+- OpenAI Responses ingress
+- Anthropic Messages ingress
+- OpenAI upstream provider support
+- Anthropic upstream provider support
+- custom function tools as the only guaranteed cross-provider tool abstraction
+
+Explicitly deferred until after MVP:
+- Gemini
+- Workers AI
+- OpenRouter
+- provider-native tools as cross-provider abstractions
+- reasoning/thinking normalization guarantees
+- failover routing and cost-aware routing
+
+## Development
+
+```bash
+npm install
+npm run cf-typegen
+npm run dev
+```
+
+Required secrets for later milestones:
+- `RELAY_API_KEY`
+- `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY`
