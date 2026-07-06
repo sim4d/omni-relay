@@ -26,6 +26,31 @@ describe('protocol renderers', () => {
     expect((payload.output[0] as Record<string, unknown>).type).toBe('message')
   })
 
+  it('renders OpenAI responses custom tool calls without rewriting them as function calls', () => {
+    const payload = renderOpenAIResponsesResponse({
+      model: 'glm-5.2',
+      provider: 'openai',
+      output: [
+        {
+          type: 'provider_extension',
+          provider: 'openai',
+          name: 'custom_tool_call',
+          payload: {
+            type: 'custom_tool_call',
+            id: 'ctc_1',
+            call_id: 'call_1',
+            name: 'codex',
+            input: 'ls',
+          },
+        },
+      ],
+      responseId: 'resp_custom_1',
+    })
+
+    expect((payload.output[0] as Record<string, unknown>).type).toBe('custom_tool_call')
+    expect((payload.output[0] as Record<string, unknown>).call_id).toBe('call_1')
+  })
+
   it('renders Anthropic messages payloads with tool use blocks', () => {
     const payload = renderAnthropicMessagesResponse({
       model: 'glm-5.2',

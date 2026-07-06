@@ -25,7 +25,7 @@ describe('feature gating', () => {
           },
         }),
       }),
-      { ENVIRONMENT: 'test', ANTHROPIC_API_KEY: 'anthropic-secret' },
+      { ENVIRONMENT: 'test', ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
       ctx,
     )
 
@@ -64,7 +64,7 @@ describe('feature gating', () => {
           },
         }),
       }),
-      { ENVIRONMENT: 'test', OPENAI_API_KEY: 'openai-secret' },
+      { ENVIRONMENT: 'test', OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
       ctx,
     )
 
@@ -72,6 +72,75 @@ describe('feature gating', () => {
     const [, init] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
     const body = JSON.parse(String(init.body)) as Record<string, unknown>
     expect(body.text).toBeTruthy()
+  })
+
+  it('allows OpenAI Responses custom tools on the same-provider route', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          id: 'resp_custom_1',
+          object: 'response',
+          model: 'glm-5.2',
+          status: 'completed',
+          output: [
+            {
+              type: 'custom_tool_call',
+              id: 'ctc_1',
+              call_id: 'call_1',
+              name: 'codex',
+              input: 'ls',
+            },
+          ],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/responses', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: 'glm-5.2',
+          input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
+          tools: [{ type: 'custom', name: 'codex', description: 'Run local commands' }],
+          tool_choice: { type: 'custom', name: 'codex' },
+          reasoning: { effort: 'high' },
+        }),
+      }),
+      { ENVIRONMENT: 'test', OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
+      ctx,
+    )
+
+    expect(response.status).toBe(200)
+    const [, init] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>
+    expect(body.tools).toEqual([{ type: 'custom', name: 'codex', description: 'Run local commands' }])
+    expect(body.tool_choice).toEqual({ type: 'custom', name: 'codex' })
+    expect(body.reasoning).toEqual({ effort: 'high' })
+  })
+
+  it('rejects OpenAI Responses custom tools on a cross-provider route', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/responses', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          providerHint: 'anthropic',
+          model: 'glm-4.7',
+          input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
+          tools: [{ type: 'custom', name: 'codex', description: 'Run local commands' }],
+        }),
+      }),
+      { ENVIRONMENT: 'test', ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
+      ctx,
+    )
+
+    expect(response.status).toBe(422)
   })
 
   it('rejects cross-provider anthropic thinking blocks on an OpenAI-selected route', async () => {
@@ -95,7 +164,7 @@ describe('feature gating', () => {
           ],
         }),
       }),
-      { ENVIRONMENT: 'test', OPENAI_API_KEY: 'openai-secret' },
+      { ENVIRONMENT: 'test', OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
       ctx,
     )
 
@@ -122,7 +191,7 @@ describe('feature gating', () => {
           ],
         }),
       }),
-      { ENVIRONMENT: 'test', ANTHROPIC_API_KEY: 'anthropic-secret' },
+      { ENVIRONMENT: 'test', ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
       ctx,
     )
 

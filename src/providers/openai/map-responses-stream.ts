@@ -5,7 +5,7 @@ import { parseSSEStream } from '../../lib/sse'
 export async function* mapOpenAIResponsesStreamToEvents(stream: ReadableStream<Uint8Array>): AsyncGenerator<NormalizedEvent> {
   let started = false
   let model = 'unknown'
-  const toolCalls = new Map<string, { id: string; name: string }>()
+  const toolCalls = new Map<string, { id: string; name: string; toolType?: 'function' | 'custom'; callId?: string }>()
 
   for await (const event of parseSSEStream(stream)) {
     let payload: Record<string, unknown>
@@ -43,13 +43,26 @@ export async function* mapOpenAIResponsesStreamToEvents(stream: ReadableStream<U
       const item = payload.item && typeof payload.item === 'object' ? payload.item as Record<string, unknown> : undefined
       if (item?.type === 'function_call' && typeof item.name === 'string') {
         const id = typeof item.call_id === 'string' ? item.call_id : typeof item.id === 'string' ? item.id : crypto.randomUUID()
-        toolCalls.set(id, { id, name: item.name })
+        toolCalls.set(id, { id, name: item.name, toolType: 'function', callId: typeof item.call_id === 'string' ? item.call_id : id })
         if (!started) {
           yield { type: 'response_start', provider: 'openai', model }
           yield { type: 'message_start', role: 'assistant' }
           started = true
         }
         yield { type: 'tool_call_start', id, name: item.name }
+        continue
+      }
+
+      if (item?.type === 'custom_tool_call' && typeof item.name === 'string') {
+        const id = typeof item.id === 'string' ? item.id : typeof item.call_id === 'string' ? item.call_id : crypto.randomUUID()
+        const callId = typeof item.call_id === 'string' ? item.call_id : id
+        toolCalls.set(id, { id, name: item.name, toolType: 'custom', callId })
+        if (!started) {
+          yield { type: 'response_start', provider: 'openai', model }
+          yield { type: 'message_start', role: 'assistant' }
+          started = true
+        }
+        yield { type: 'tool_call_start', id, callId, name: item.name, toolType: 'custom' }
       }
       continue
     }
@@ -66,13 +79,31 @@ export async function* mapOpenAIResponsesStreamToEvents(stream: ReadableStream<U
       continue
     }
 
+    if (eventType === 'response.custom_tool_call_input.delta') {
+      const id = typeof payload.item_id === 'string' ? payload.item_id : undefined
+      if (id && typeof payload.delta === 'string') {
+        yield { type: 'tool_call_delta', id, argumentsDelta: payload.delta }
+      }
+      continue
+    }
+
+    if (eventType === 'response.custom_tool_call_input.done') {
+      const id = typeof payload.item_id === 'string' ? payload.item_id : undefined
+      if (id && toolCalls.has(id)) {
+        yield { type: 'tool_call_end', id }
+        toolCalls.delete(id)
+      }
+      continue
+    }
+
     if (eventType === 'response.output_item.done' || eventType === 'response.function_call_arguments.done') {
       const item = payload.item && typeof payload.item === 'object' ? payload.item as Record<string, unknown> : payload
-      const id = typeof item.call_id === 'string'
-        ? item.call_id
-        : typeof item.id === 'string'
+      const id =
+        typeof item.id === 'string'
           ? item.id
-          : undefined
+          : typeof item.call_id === 'string'
+            ? item.call_id
+            : undefined
       if (id && toolCalls.has(id)) {
         yield { type: 'tool_call_end', id }
         toolCalls.delete(id)

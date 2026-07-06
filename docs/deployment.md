@@ -31,6 +31,25 @@ npx wrangler secret put RELAY_API_KEY
 - `RELAY_API_KEY` — optional, but recommended to protect relay routes and `/v1/debug/translate`
 - ingress auth accepts either `Authorization: Bearer <relay-key>` or `x-api-key: <relay-key>`
 
+## Codex CLI client setup
+
+If you want Codex CLI to use this relay directly, configure a local client-side environment variable:
+
+- `RELAYX_API_KEY` — the local shell variable that Codex uses for the relay's bearer auth
+
+Recommended local setup:
+
+- store the key in `~/.codex/relayx_api_key`
+- export `RELAYX_API_KEY` from `~/.bashrc`
+- point the Codex provider base URL at:
+  - `https://relayx.sim4d.workers.dev/v1`
+
+Important:
+
+- `RELAYX_API_KEY` is a **client-side shell variable**
+- `RELAY_API_KEY` is the **server-side Worker secret**
+- they should contain the same secret value, but they are used in different places
+
 ## Rate limiting configuration
 
 The relay now prefers a Durable Object-backed limiter that is verifiable on Workers compute.
@@ -54,8 +73,10 @@ The checked-in `wrangler.jsonc` includes:
 ## Runtime configuration notes
 
 - `nodejs_compat` is **not enabled**. The current relay only depends on platform-native Web APIs and does not require Node.js compatibility shims.
+- `OPENAI_BASE_URL` and `ANTHROPIC_BASE_URL` are now **required** runtime vars for any upstream call path.
+- The relay does **not** fall back to `api.openai.com` or `api.anthropic.com`; it only calls the configured compatible upstream base URLs from Wrangler env/vars.
 - Production defaults now target the compatible backends used by this project:
-  - OpenAI-compatible: `https://cpa.sim4ai.ccwu.cc/v1`
+  - OpenAI-compatible: `https://open.bigmodel.cn/api/coding/paas/v4`
   - Anthropic-compatible: `https://open.bigmodel.cn/api/anthropic/v1`
 - Staging uses the same compatible backend pair with a much stricter limiter for proof-oriented testing.
 

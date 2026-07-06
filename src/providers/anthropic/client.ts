@@ -5,11 +5,13 @@ import { parseJsonResponse } from '../../lib/fetch'
 import { mapNormalizedRequestToAnthropicMessagesRequest } from './map-request'
 import { mapAnthropicMessagesResponseToNormalizedResult } from './map-response'
 import { mapAnthropicStreamToEvents } from './map-stream'
+import { requireAnthropicBaseUrl } from '../upstream-base-url'
 
 export async function invokeAnthropicMessages(request: NormalizedRequest, env: AppEnv): Promise<NormalizedResult> {
   if (!env.ANTHROPIC_API_KEY && !env.ANTHROPIC_AUTH_TOKEN) {
     throw new AuthenticationError('Neither ANTHROPIC_API_KEY nor ANTHROPIC_AUTH_TOKEN is configured in the Worker environment')
   }
+  const anthropicBaseUrl = requireAnthropicBaseUrl(env)
 
   const headers: Record<string, string> = {
     'content-type': 'application/json',
@@ -22,7 +24,7 @@ export async function invokeAnthropicMessages(request: NormalizedRequest, env: A
     headers['x-api-key'] = env.ANTHROPIC_API_KEY
   }
 
-  const upstream = await fetch(`${env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com/v1'}/messages`, {
+  const upstream = await fetch(`${anthropicBaseUrl}/messages`, {
     method: 'POST',
     headers,
     body: JSON.stringify(mapNormalizedRequestToAnthropicMessagesRequest(request)),
@@ -44,6 +46,7 @@ export async function invokeAnthropicMessagesStream(request: NormalizedRequest, 
   if (!env.ANTHROPIC_API_KEY && !env.ANTHROPIC_AUTH_TOKEN) {
     throw new AuthenticationError('Neither ANTHROPIC_API_KEY nor ANTHROPIC_AUTH_TOKEN is configured in the Worker environment')
   }
+  const anthropicBaseUrl = requireAnthropicBaseUrl(env)
 
   const headers: Record<string, string> = {
     'content-type': 'application/json',
@@ -56,7 +59,7 @@ export async function invokeAnthropicMessagesStream(request: NormalizedRequest, 
     headers['x-api-key'] = env.ANTHROPIC_API_KEY
   }
 
-  const upstream = await fetch(`${env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com/v1'}/messages`, {
+  const upstream = await fetch(`${anthropicBaseUrl}/messages`, {
     method: 'POST',
     headers,
     body: JSON.stringify({

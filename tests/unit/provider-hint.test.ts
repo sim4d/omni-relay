@@ -33,12 +33,12 @@ describe('providerHint override', () => {
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }),
-      { ENVIRONMENT: 'test', ANTHROPIC_AUTH_TOKEN: 'token' },
+      { ENVIRONMENT: 'test', ANTHROPIC_AUTH_TOKEN: 'token', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
       ctx,
     )
 
     expect(response.status).toBe(200)
     const [url] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
-    expect(url).toBe('https://api.anthropic.com/v1/messages')
+    expect(url).toBe('https://anthropic.example/v1/messages')
   })
 })

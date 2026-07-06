@@ -26,6 +26,58 @@ describe('provider adapter mapping', () => {
     expect(payload.tool_choice).toEqual({ type: 'function', name: 'lookup_weather' })
   })
 
+  it('maps custom OpenAI Responses tools and preserved same-provider fields upstream', () => {
+    const payload = mapNormalizedRequestToOpenAIResponsesRequest({
+      ...normalizedRequest,
+      toolChoice: { type: 'tool', name: 'codex', toolType: 'custom' },
+      tools: undefined,
+      extensions: {
+        openai: {
+          ingressProtocol: 'responses',
+          customTools: [{ type: 'custom', name: 'codex', description: 'Run commands' }],
+          unmappedRequestFields: { reasoning: { effort: 'high' }, parallel_tool_calls: false },
+        },
+      },
+    })
+    const payloadRecord = payload as Record<string, unknown>
+
+    expect(payload.tools).toEqual([{ type: 'custom', name: 'codex', description: 'Run commands' }])
+    expect(payload.tool_choice).toEqual({ type: 'custom', name: 'codex' })
+    expect(payloadRecord.reasoning).toEqual({ effort: 'high' })
+    expect(payloadRecord.parallel_tool_calls).toBe(false)
+  })
+
+  it('maps OpenAI Responses custom tool calls back to normalized provider-native blocks', () => {
+    const result = mapOpenAIResponsesResponseToNormalizedResult({
+      id: 'resp_custom_1',
+      model: 'glm-5.2',
+      status: 'completed',
+      output: [
+        {
+          type: 'custom_tool_call',
+          id: 'ctc_1',
+          call_id: 'call_1',
+          name: 'codex',
+          input: 'ls -la',
+        },
+      ],
+    })
+
+    expect(result.finishReason).toBe('tool_calls')
+    expect(result.output[0]).toEqual({
+      type: 'provider_extension',
+      provider: 'openai',
+      name: 'custom_tool_call',
+      payload: {
+        type: 'custom_tool_call',
+        id: 'ctc_1',
+        call_id: 'call_1',
+        name: 'codex',
+        input: 'ls -la',
+      },
+    })
+  })
+
   it('maps normalized requests to an Anthropic Messages payload', () => {
     const payload = mapNormalizedRequestToAnthropicMessagesRequest(normalizedRequest)
     expect(payload.model).toBe('glm-5.2')

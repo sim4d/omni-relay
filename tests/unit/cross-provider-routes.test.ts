@@ -35,13 +35,14 @@ describe('cross-provider non-streaming routing', () => {
       {
         ENVIRONMENT: 'test',
         ANTHROPIC_API_KEY: 'anthropic-secret',
+        ANTHROPIC_BASE_URL: 'https://anthropic.example/v1',
       },
       ctx,
     )
 
     expect(response.status).toBe(200)
     const [url] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
-    expect(url).toBe('https://api.anthropic.com/v1/messages')
+    expect(url).toBe('https://anthropic.example/v1/messages')
 
     const payload = await response.json() as Record<string, unknown>
     expect(payload.object).toBe('chat.completion')
@@ -83,13 +84,14 @@ describe('cross-provider non-streaming routing', () => {
       {
         ENVIRONMENT: 'test',
         OPENAI_API_KEY: 'openai-secret',
+        OPENAI_BASE_URL: 'https://openai.example/v1',
       },
       ctx,
     )
 
     expect(response.status).toBe(200)
     const [url] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
-    expect(url).toBe('https://api.openai.com/v1/responses')
+    expect(url).toBe('https://openai.example/v1/responses')
 
     const payload = await response.json() as Record<string, unknown>
     expect(payload.type).toBe('message')
@@ -124,13 +126,14 @@ describe('cross-provider non-streaming routing', () => {
       {
         ENVIRONMENT: 'test',
         ANTHROPIC_API_KEY: 'anthropic-secret',
+        ANTHROPIC_BASE_URL: 'https://anthropic.example/v1',
       },
       ctx,
     )
 
     expect(response.status).toBe(200)
     const [url] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
-    expect(url).toBe('https://api.anthropic.com/v1/messages')
+    expect(url).toBe('https://anthropic.example/v1/messages')
 
     const payload = await response.json() as Record<string, unknown>
     expect(payload.object).toBe('response')

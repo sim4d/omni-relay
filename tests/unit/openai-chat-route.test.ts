@@ -4,6 +4,7 @@ describe('POST /v1/chat/completions', () => {
   const env = {
     ENVIRONMENT: 'test',
     OPENAI_API_KEY: 'upstream-secret',
+    OPENAI_BASE_URL: 'https://openai.example/v1',
   }
 
   const ctx = {
@@ -52,7 +53,7 @@ describe('POST /v1/chat/completions', () => {
     expect(response.headers.get('x-omni-upstream-latency-ms')).toBeTruthy()
 
     const [url, init] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
-    expect(url).toBe('https://api.openai.com/v1/responses')
+    expect(url).toBe('https://openai.example/v1/responses')
     expect(init.method).toBe('POST')
 
     const payload = await response.json() as Record<string, unknown>
@@ -158,6 +159,7 @@ describe('POST /v1/chat/completions', () => {
       {
         ENVIRONMENT: 'test',
         ANTHROPIC_API_KEY: 'anthropic-secret',
+        ANTHROPIC_BASE_URL: 'https://anthropic.example/v1',
       },
       ctx,
     )

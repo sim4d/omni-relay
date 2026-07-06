@@ -50,14 +50,7 @@ The relay is designed so backend selection is mostly a configuration and routing
 Known-compatible backend shapes for this project include:
 
 - Anthropic-compatible base URLs such as `https://open.bigmodel.cn/api/anthropic/v1`
-- OpenAI-compatible base URLs such as `https://cpa.sim4ai.ccwu.cc/v1`
-
-If you want to target BigModel directly:
-
-- use `https://open.bigmodel.cn/api/paas/v4/` for the standard OpenAI-compatible API
-- use `https://open.bigmodel.cn/api/coding/paas/v4` for the GLM Coding Plan endpoint
-
-The commonly mistyped `.../api/pass/v4` path will not work.
+- OpenAI-compatible base URLs such as `https://open.bigmodel.cn/api/coding/paas/v4`
 
 For cross-provider calls, set `providerHint` in the request body when model-prefix auto-routing is not enough.
 

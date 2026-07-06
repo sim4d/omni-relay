@@ -49,7 +49,7 @@ describe('custom tool support', () => {
           ],
         }),
       }),
-      { ENVIRONMENT: 'test', OPENAI_API_KEY: 'openai-secret' },
+      { ENVIRONMENT: 'test', OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
       ctx,
     )
 
@@ -99,7 +99,7 @@ describe('custom tool support', () => {
           tools: [{ name: 'lookup_weather', input_schema: { type: 'object', properties: { city: { type: 'string' } } } }],
         }),
       }),
-      { ENVIRONMENT: 'test', OPENAI_API_KEY: 'openai-secret' },
+      { ENVIRONMENT: 'test', OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
       ctx,
     )
 
@@ -154,7 +154,7 @@ describe('custom tool support', () => {
           ],
         }),
       }),
-      { ENVIRONMENT: 'test', ANTHROPIC_API_KEY: 'anthropic-secret' },
+      { ENVIRONMENT: 'test', ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
       ctx,
     )
 

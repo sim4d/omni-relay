@@ -80,21 +80,38 @@ function parseInput(input: string | Array<Record<string, unknown>>): { instructi
   return { instructions, messages }
 }
 
-function normalizeTools(tools: Array<Record<string, unknown>> | undefined): NormalizedTool[] | undefined {
-  if (!tools?.length) return undefined
+function normalizeTools(tools: Array<Record<string, unknown>> | undefined): {
+  functionTools?: NormalizedTool[]
+  customTools?: Array<Record<string, unknown>>
+} {
+  if (!tools?.length) return {}
 
-  return tools.map((tool) => {
-    if (tool.type !== 'function') {
-      throw new UnsupportedFeatureError(`OpenAI Responses tool type \"${String(tool.type)}\" is not supported in MVP`)
+  const functionTools: NormalizedTool[] = []
+  const customTools: Array<Record<string, unknown>> = []
+
+  for (const tool of tools) {
+    if (tool.type === 'function') {
+      functionTools.push({
+        type: 'function',
+        name: String(tool.name),
+        description: typeof tool.description === 'string' ? tool.description : undefined,
+        inputSchema: tool.parameters,
+      })
+      continue
     }
 
-    return {
-      type: 'function',
-      name: String(tool.name),
-      description: typeof tool.description === 'string' ? tool.description : undefined,
-      inputSchema: tool.parameters,
+    if (tool.type === 'custom') {
+      customTools.push(tool)
+      continue
     }
-  })
+
+    throw new UnsupportedFeatureError(`OpenAI Responses tool type \"${String(tool.type)}\" is not supported in MVP`)
+  }
+
+  return {
+    functionTools: functionTools.length > 0 ? functionTools : undefined,
+    customTools: customTools.length > 0 ? customTools : undefined,
+  }
 }
 
 function normalizeToolChoice(toolChoice: unknown): ToolChoice | undefined {
@@ -103,8 +120,18 @@ function normalizeToolChoice(toolChoice: unknown): ToolChoice | undefined {
     return { type: toolChoice }
   }
 
-  if (typeof toolChoice === 'object' && toolChoice && 'name' in toolChoice && typeof (toolChoice as Record<string, unknown>).name === 'string') {
-    return { type: 'tool', name: (toolChoice as Record<string, string>).name }
+  if (
+    typeof toolChoice === 'object'
+    && toolChoice
+    && 'name' in toolChoice
+    && typeof (toolChoice as Record<string, unknown>).name === 'string'
+  ) {
+    const record = toolChoice as Record<string, unknown>
+    return {
+      type: 'tool',
+      name: record.name as string,
+      toolType: record.type === 'custom' ? 'custom' : record.type === 'function' ? 'function' : undefined,
+    }
   }
 
   return undefined
@@ -117,28 +144,45 @@ export function parseOpenAIResponsesRequest(input: unknown): NormalizedRequest {
   }
 
   const request = parsed.data
-  const normalizedInput = parseInput(request.input as string | Array<Record<string, unknown>>)
+  const {
+    model,
+    providerHint,
+    input: requestInput,
+    instructions: requestInstructions,
+    tools,
+    tool_choice,
+    stream,
+    temperature,
+    max_output_tokens,
+    text,
+    metadata,
+    ...unmappedRequestFields
+  } = request
+  const normalizedInput = parseInput(requestInput as string | Array<Record<string, unknown>>)
+  const normalizedTools = normalizeTools(tools as Array<Record<string, unknown>> | undefined)
 
   return {
-    targetModel: request.model,
-    providerHint: request.providerHint,
+    targetModel: model,
+    providerHint,
     instructions: [
-      ...(request.instructions ? [textBlock(request.instructions)] : []),
+      ...(requestInstructions ? [textBlock(requestInstructions)] : []),
       ...normalizedInput.instructions,
     ],
     messages: normalizedInput.messages,
-    tools: normalizeTools(request.tools as Array<Record<string, unknown>> | undefined),
-    toolChoice: normalizeToolChoice(request.tool_choice),
+    tools: normalizedTools.functionTools,
+    toolChoice: normalizeToolChoice(tool_choice),
     output: {
-      temperature: request.temperature,
-      maxOutputTokens: request.max_output_tokens,
+      temperature,
+      maxOutputTokens: max_output_tokens,
     },
-    stream: request.stream ?? false,
-    metadata: request.metadata,
+    stream: stream ?? false,
+    metadata,
     extensions: {
       openai: {
         ingressProtocol: 'responses',
-        text: request.text,
+        text,
+        ...(normalizedTools.customTools ? { customTools: normalizedTools.customTools } : {}),
+        ...(Object.keys(unmappedRequestFields).length > 0 ? { unmappedRequestFields } : {}),
       },
     },
   }

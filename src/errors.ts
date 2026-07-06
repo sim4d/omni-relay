@@ -85,6 +85,12 @@ export class InternalRelayError extends RelayError {
   }
 }
 
+export class ConfigurationError extends RelayError {
+  constructor(message = 'Relay configuration error', details?: unknown) {
+    super(500, 'internal_error', message, details)
+  }
+}
+
 export class NotFoundError extends RelayError {
   constructor(message = 'Route not found', details?: unknown) {
     super(404, 'not_found', message, details)

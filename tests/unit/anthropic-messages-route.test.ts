@@ -4,6 +4,7 @@ describe('POST /v1/messages', () => {
   const env = {
     ENVIRONMENT: 'test',
     ANTHROPIC_API_KEY: 'anthropic-secret',
+    ANTHROPIC_BASE_URL: 'https://anthropic.example/v1',
   }
 
   const ctx = {
@@ -47,7 +48,7 @@ describe('POST /v1/messages', () => {
     expect(response.headers.get('x-omni-upstream-latency-ms')).toBeTruthy()
 
     const [url] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
-    expect(url).toBe('https://api.anthropic.com/v1/messages')
+    expect(url).toBe('https://anthropic.example/v1/messages')
 
     const payload = await response.json() as Record<string, unknown>
     expect(payload.type).toBe('message')

@@ -84,6 +84,57 @@ describe('OpenAI responses streaming foundations', () => {
     expect(events).toContainEqual({ type: 'tool_call_end', id: 'call_1' })
   })
 
+  it('maps OpenAI Responses custom-tool-call deltas into normalized events', async () => {
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            'event: response.created\n' +
+            'data: {"type":"response.created","response":{"id":"resp_1","model":"glm-5.2"}}\n\n' +
+            'event: response.output_item.added\n' +
+            'data: {"type":"response.output_item.added","item":{"type":"custom_tool_call","id":"ctc_1","call_id":"call_1","name":"codex","input":""}}\n\n' +
+            'event: response.custom_tool_call_input.delta\n' +
+            'data: {"type":"response.custom_tool_call_input.delta","item_id":"ctc_1","delta":"ls"}\n\n' +
+            'event: response.custom_tool_call_input.done\n' +
+            'data: {"type":"response.custom_tool_call_input.done","item_id":"ctc_1","input":"ls"}\n\n' +
+            'event: response.completed\n' +
+            'data: {"type":"response.completed","response":{"id":"resp_1"}}\n\n',
+          ),
+        )
+        controller.close()
+      },
+    })
+
+    const events = []
+    for await (const event of mapOpenAIResponsesStreamToEvents(upstream)) {
+      events.push(event)
+    }
+
+    expect(events).toContainEqual({ type: 'tool_call_start', id: 'ctc_1', callId: 'call_1', name: 'codex', toolType: 'custom' })
+    expect(events).toContainEqual({ type: 'tool_call_delta', id: 'ctc_1', argumentsDelta: 'ls' })
+    expect(events).toContainEqual({ type: 'tool_call_end', id: 'ctc_1' })
+  })
+
+  it('renders normalized custom-tool events as OpenAI Responses SSE events', async () => {
+    async function* events() {
+      yield { type: 'response_start', provider: 'openai', model: 'glm-5.2' } as const
+      yield { type: 'message_start', role: 'assistant' } as const
+      yield { type: 'tool_call_start', id: 'ctc_1', callId: 'call_1', name: 'codex', toolType: 'custom' } as const
+      yield { type: 'tool_call_delta', id: 'ctc_1', argumentsDelta: 'pwd' } as const
+      yield { type: 'tool_call_end', id: 'ctc_1' } as const
+      yield { type: 'response_end', finishReason: 'tool_calls' } as const
+    }
+
+    const stream = renderOpenAIResponsesStream(events())
+    const body = await new Response(stream).text()
+
+    expect(body).toContain('response.output_item.added')
+    expect(body).toContain('custom_tool_call')
+    expect(body).toContain('response.custom_tool_call_input.delta')
+    expect(body).toContain('response.custom_tool_call_input.done')
+    expect(body).toContain('"call_id":"call_1"')
+  })
+
   it('fails clearly on invalid upstream JSON chunks', async () => {
     const upstream = new ReadableStream<Uint8Array>({
       start(controller) {

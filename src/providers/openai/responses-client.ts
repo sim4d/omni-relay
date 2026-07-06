@@ -5,13 +5,15 @@ import { parseJsonResponse } from '../../lib/fetch'
 import { mapNormalizedRequestToOpenAIResponsesRequest } from './map-responses-request'
 import { mapOpenAIResponsesResponseToNormalizedResult } from './map-responses-response'
 import { mapOpenAIResponsesStreamToEvents } from './map-responses-stream'
+import { requireOpenAIBaseUrl } from '../upstream-base-url'
 
 export async function invokeOpenAIResponses(request: NormalizedRequest, env: AppEnv): Promise<NormalizedResult> {
   if (!env.OPENAI_API_KEY) {
     throw new AuthenticationError('OPENAI_API_KEY is not configured in the Worker environment')
   }
+  const openAIBaseUrl = requireOpenAIBaseUrl(env)
 
-  const upstream = await fetch(`${env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1'}/responses`, {
+  const upstream = await fetch(`${openAIBaseUrl}/responses`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${env.OPENAI_API_KEY}`,
@@ -36,8 +38,9 @@ export async function invokeOpenAIResponsesStream(request: NormalizedRequest, en
   if (!env.OPENAI_API_KEY) {
     throw new AuthenticationError('OPENAI_API_KEY is not configured in the Worker environment')
   }
+  const openAIBaseUrl = requireOpenAIBaseUrl(env)
 
-  const upstream = await fetch(`${env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1'}/responses`, {
+  const upstream = await fetch(`${openAIBaseUrl}/responses`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${env.OPENAI_API_KEY}`,

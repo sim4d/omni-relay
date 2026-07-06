@@ -46,6 +46,16 @@ function normalizeOutput(record: Record<string, unknown>): ContentBlock[] {
             ? outputItem.arguments
             : JSON.stringify(outputItem.arguments ?? {}),
       })
+      continue
+    }
+
+    if (outputItem.type === 'custom_tool_call' && typeof outputItem.name === 'string' && typeof outputItem.input === 'string') {
+      output.push({
+        type: 'provider_extension',
+        provider: 'openai',
+        name: 'custom_tool_call',
+        payload: outputItem,
+      })
     }
   }
 
@@ -60,12 +70,16 @@ export function mapOpenAIResponsesResponseToNormalizedResult(payload: unknown): 
   const record = payload as Record<string, unknown>
   const usage = record.usage && typeof record.usage === 'object' ? record.usage as Record<string, unknown> : undefined
   const output = normalizeOutput(record)
+  const sawToolCall = output.some((block) =>
+    block.type === 'tool_call'
+    || (block.type === 'provider_extension' && block.provider === 'openai' && block.name === 'custom_tool_call'),
+  )
 
   return {
     model: typeof record.model === 'string' ? record.model : 'unknown',
     provider: 'openai',
     output,
-    finishReason: output.some((block) => block.type === 'tool_call') ? 'tool_calls' : 'stop',
+    finishReason: sawToolCall ? 'tool_calls' : 'stop',
     usage: usage
       ? {
           inputTokens: typeof usage.input_tokens === 'number' ? usage.input_tokens : undefined,

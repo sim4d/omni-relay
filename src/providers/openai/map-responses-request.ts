@@ -44,24 +44,36 @@ function instructionsToText(instructions: ContentBlock[]): string | undefined {
 }
 
 export function mapNormalizedRequestToOpenAIResponsesRequest(request: NormalizedRequest) {
+  const openAIExtensions = request.extensions?.openai ?? {}
+  const customTools = Array.isArray(openAIExtensions.customTools)
+    ? openAIExtensions.customTools.filter((tool): tool is Record<string, unknown> => !!tool && typeof tool === 'object')
+    : []
+  const unmappedRequestFields =
+    openAIExtensions.unmappedRequestFields && typeof openAIExtensions.unmappedRequestFields === 'object'
+      ? openAIExtensions.unmappedRequestFields as Record<string, unknown>
+      : undefined
+  const functionTools = request.tools?.map((tool) => ({
+    type: 'function' as const,
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.inputSchema,
+  })) ?? []
+  const tools = [...functionTools, ...customTools]
+
   return {
+    ...unmappedRequestFields,
     model: request.targetModel,
     instructions: instructionsToText(request.instructions),
     input: request.messages.map(messageToInputItem),
-    tools: request.tools?.map((tool) => ({
-      type: 'function' as const,
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.inputSchema,
-    })),
+    tools: tools.length > 0 ? tools : undefined,
     tool_choice:
       request.toolChoice?.type === 'tool'
-        ? { type: 'function', name: request.toolChoice.name }
+        ? { type: request.toolChoice.toolType === 'custom' ? 'custom' : 'function', name: request.toolChoice.name }
         : request.toolChoice?.type,
     temperature: request.output?.temperature,
     max_output_tokens: request.output?.maxOutputTokens,
     metadata: request.metadata,
     stream: request.stream,
-    ...(request.extensions?.openai?.text ? { text: request.extensions.openai.text } : {}),
+    ...(openAIExtensions.text ? { text: openAIExtensions.text } : {}),
   }
 }

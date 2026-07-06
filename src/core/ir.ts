@@ -52,7 +52,7 @@ export type ToolChoice =
   | { type: 'auto' }
   | { type: 'none' }
   | { type: 'required' }
-  | { type: 'tool'; name: string }
+  | { type: 'tool'; name: string; toolType?: 'function' | 'custom' }
 
 export type OutputControls = {
   temperature?: number

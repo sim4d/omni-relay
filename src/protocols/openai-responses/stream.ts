@@ -5,7 +5,7 @@ async function* toOpenAIResponsesSSE(events: AsyncIterable<NormalizedEvent>): As
   let id = `resp_${crypto.randomUUID().replace(/-/g, '')}`
   let model = 'unknown'
   let outputIndex = 0
-  const toolIndices = new Map<string, number>()
+  const toolIndices = new Map<string, { outputIndex: number; toolType?: 'function' | 'custom'; callId: string; input: string; name: string }>()
   let sawToolCall = false
 
   for await (const event of events) {
@@ -41,26 +41,53 @@ async function* toOpenAIResponsesSSE(events: AsyncIterable<NormalizedEvent>): As
     if (event.type === 'tool_call_start') {
       sawToolCall = true
       const currentIndex = outputIndex++
-      toolIndices.set(event.id, currentIndex)
+      const toolType = event.toolType === 'custom' ? 'custom' : 'function'
+      const callId = event.callId ?? event.id
+      toolIndices.set(event.id, { outputIndex: currentIndex, toolType, callId, input: '', name: event.name })
       yield {
         event: 'response.output_item.added',
         data: JSON.stringify({
           type: 'response.output_item.added',
           response_id: id,
           output_index: currentIndex,
-          item: {
-            type: 'function_call',
-            id: event.id,
-            call_id: event.id,
-            name: event.name,
-            arguments: '',
-          },
+          item:
+            toolType === 'custom'
+              ? {
+                  type: 'custom_tool_call',
+                  id: event.id,
+                  call_id: callId,
+                  name: event.name,
+                  input: '',
+                }
+              : {
+                  type: 'function_call',
+                  id: event.id,
+                  call_id: callId,
+                  name: event.name,
+                  arguments: '',
+                },
         }),
       }
       continue
     }
 
     if (event.type === 'tool_call_delta') {
+      const toolMeta = toolIndices.get(event.id)
+      if (toolMeta?.toolType === 'custom') {
+        toolMeta.input += event.argumentsDelta
+        yield {
+          event: 'response.custom_tool_call_input.delta',
+          data: JSON.stringify({
+            type: 'response.custom_tool_call_input.delta',
+            response_id: id,
+            output_index: toolMeta.outputIndex,
+            item_id: event.id,
+            delta: event.argumentsDelta,
+          }),
+        }
+        continue
+      }
+
       yield {
         event: 'response.function_call_arguments.delta',
         data: JSON.stringify({
@@ -75,7 +102,38 @@ async function* toOpenAIResponsesSSE(events: AsyncIterable<NormalizedEvent>): As
     }
 
     if (event.type === 'tool_call_end') {
-      const currentIndex = toolIndices.get(event.id) ?? 0
+      const toolMeta = toolIndices.get(event.id)
+      const currentIndex = toolMeta?.outputIndex ?? 0
+      if (toolMeta?.toolType === 'custom') {
+        yield {
+          event: 'response.custom_tool_call_input.done',
+          data: JSON.stringify({
+            type: 'response.custom_tool_call_input.done',
+            response_id: id,
+            output_index: currentIndex,
+            item_id: event.id,
+            input: toolMeta.input,
+          }),
+        }
+        yield {
+          event: 'response.output_item.done',
+          data: JSON.stringify({
+            type: 'response.output_item.done',
+            response_id: id,
+            output_index: currentIndex,
+            item: {
+              type: 'custom_tool_call',
+              id: event.id,
+              call_id: toolMeta.callId,
+              name: toolMeta.name,
+              input: toolMeta.input,
+            },
+          }),
+        }
+        toolIndices.delete(event.id)
+        continue
+      }
+
       yield {
         event: 'response.output_item.done',
         data: JSON.stringify({
@@ -85,10 +143,11 @@ async function* toOpenAIResponsesSSE(events: AsyncIterable<NormalizedEvent>): As
           item: {
             type: 'function_call',
             id: event.id,
-            call_id: event.id,
+            call_id: toolMeta?.callId ?? event.id,
           },
         }),
       }
+      toolIndices.delete(event.id)
       continue
     }
 

@@ -26,14 +26,20 @@ function extractOutputItems(output: ContentBlock[]) {
   }
 
   for (const block of output) {
-    if (block.type !== 'tool_call') continue
-    items.push({
-      type: 'function_call',
-      id: block.id,
-      call_id: block.id,
-      name: block.name,
-      arguments: block.argumentsJson,
-    })
+    if (block.type === 'tool_call') {
+      items.push({
+        type: 'function_call',
+        id: block.id,
+        call_id: block.id,
+        name: block.name,
+        arguments: block.argumentsJson,
+      })
+      continue
+    }
+
+    if (block.type === 'provider_extension' && block.provider === 'openai' && block.name === 'custom_tool_call' && block.payload && typeof block.payload === 'object') {
+      items.push(block.payload as Record<string, unknown>)
+    }
   }
 
   return items

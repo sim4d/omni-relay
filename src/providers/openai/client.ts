@@ -5,13 +5,15 @@ import type { NormalizedRequest, NormalizedResult } from '../../core/ir'
 import { mapNormalizedRequestToOpenAIChatRequest } from './map-request'
 import { mapOpenAIChatResponseToNormalizedResult } from './map-response'
 import { mapOpenAIChatStreamToEvents } from './map-stream'
+import { requireOpenAIBaseUrl } from '../upstream-base-url'
 
 export async function invokeOpenAIChat(request: NormalizedRequest, env: AppEnv): Promise<NormalizedResult> {
   if (!env.OPENAI_API_KEY) {
     throw new AuthenticationError('OPENAI_API_KEY is not configured in the Worker environment')
   }
+  const openAIBaseUrl = requireOpenAIBaseUrl(env)
 
-  const upstream = await fetch(`${env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1'}/chat/completions`, {
+  const upstream = await fetch(`${openAIBaseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${env.OPENAI_API_KEY}`,
@@ -36,8 +38,9 @@ export async function invokeOpenAIChatStream(request: NormalizedRequest, env: Ap
   if (!env.OPENAI_API_KEY) {
     throw new AuthenticationError('OPENAI_API_KEY is not configured in the Worker environment')
   }
+  const openAIBaseUrl = requireOpenAIBaseUrl(env)
 
-  const upstream = await fetch(`${env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1'}/chat/completions`, {
+  const upstream = await fetch(`${openAIBaseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${env.OPENAI_API_KEY}`,
