@@ -6,6 +6,7 @@ import type { AppEnv } from '../../env'
 import { jsonResponse } from '../../lib/http'
 import { readJsonBody } from '../../lib/json'
 import type { RequestContext } from '../../observability'
+import { invokeAnthropicMessages } from '../../providers/anthropic/client'
 import { invokeOpenAIResponses } from '../../providers/openai/responses-client'
 import { parseOpenAIResponsesRequest } from './parse'
 import { renderOpenAIResponsesResponse } from './render'
@@ -26,11 +27,14 @@ export async function handleOpenAIResponses(request: Request, env: AppEnv, reque
   assertMilestoneOneFeatureSupport(normalized)
 
   const provider = selectProvider(normalized)
-  if (provider !== 'openai') {
-    throw new ValidationError(`OpenAI Responses route currently only supports OpenAI-routed models, got provider: ${provider}`)
-  }
-
-  const result = await invokeOpenAIResponses(normalized, env)
+  const result =
+    provider === 'openai'
+      ? await invokeOpenAIResponses(normalized, env)
+      : provider === 'anthropic'
+        ? await invokeAnthropicMessages(normalized, env)
+        : (() => {
+            throw new ValidationError(`Unsupported provider selected for OpenAI Responses route: ${provider}`)
+          })()
   return jsonResponse(renderOpenAIResponsesResponse(result), {
     status: 200,
     headers: {

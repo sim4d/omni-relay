@@ -7,6 +7,7 @@ import { jsonResponse } from '../../lib/http'
 import { renderOpenAIChatResponse } from './render'
 import { parseOpenAIChatRequest } from './parse'
 import { invokeOpenAIChat } from '../../providers/openai/client'
+import { invokeAnthropicMessages } from '../../providers/anthropic/client'
 import type { AppEnv } from '../../env'
 import type { RequestContext } from '../../observability'
 
@@ -26,11 +27,14 @@ export async function handleOpenAIChatCompletions(request: Request, env: AppEnv,
   assertMilestoneOneFeatureSupport(normalized)
 
   const provider = selectProvider(normalized)
-  if (provider !== 'openai') {
-    throw new ValidationError(`OpenAI Chat route currently only supports OpenAI-routed models, got provider: ${provider}`)
-  }
-
-  const result = await invokeOpenAIChat(normalized, env)
+  const result =
+    provider === 'openai'
+      ? await invokeOpenAIChat(normalized, env)
+      : provider === 'anthropic'
+        ? await invokeAnthropicMessages(normalized, env)
+        : (() => {
+            throw new ValidationError(`Unsupported provider selected for OpenAI Chat route: ${provider}`)
+          })()
   return jsonResponse(renderOpenAIChatResponse(result), {
     status: 200,
     headers: {

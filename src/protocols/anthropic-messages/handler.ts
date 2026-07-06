@@ -7,6 +7,7 @@ import { jsonResponse } from '../../lib/http'
 import { readJsonBody } from '../../lib/json'
 import type { RequestContext } from '../../observability'
 import { invokeAnthropicMessages } from '../../providers/anthropic/client'
+import { invokeOpenAIResponses } from '../../providers/openai/responses-client'
 import { parseAnthropicMessagesRequest } from './parse'
 import { renderAnthropicMessagesResponse } from './render'
 
@@ -26,11 +27,14 @@ export async function handleAnthropicMessages(request: Request, env: AppEnv, req
   assertMilestoneOneFeatureSupport(normalized)
 
   const provider = selectProvider(normalized)
-  if (provider !== 'anthropic') {
-    throw new ValidationError(`Anthropic Messages route currently only supports Anthropic-routed models, got provider: ${provider}`)
-  }
-
-  const result = await invokeAnthropicMessages(normalized, env)
+  const result =
+    provider === 'anthropic'
+      ? await invokeAnthropicMessages(normalized, env)
+      : provider === 'openai'
+        ? await invokeOpenAIResponses(normalized, env)
+        : (() => {
+            throw new ValidationError(`Unsupported provider selected for Anthropic Messages route: ${provider}`)
+          })()
   return jsonResponse(renderAnthropicMessagesResponse(result), {
     status: 200,
     headers: {
