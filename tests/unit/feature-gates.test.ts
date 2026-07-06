@@ -73,4 +73,59 @@ describe('feature gating', () => {
     const body = JSON.parse(String(init.body)) as Record<string, unknown>
     expect(body.text).toBeTruthy()
   })
+
+  it('rejects cross-provider anthropic thinking blocks on an OpenAI-selected route', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          providerHint: 'openai',
+          model: 'glm-5.2',
+          max_tokens: 64,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'thinking', text: 'internal reasoning' },
+              ],
+            },
+          ],
+        }),
+      }),
+      { ENVIRONMENT: 'test', OPENAI_API_KEY: 'openai-secret' },
+      ctx,
+    )
+
+    expect(response.status).toBe(422)
+  })
+
+  it('rejects cross-provider multimodal OpenAI content blocks on an Anthropic-selected route', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/responses', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          providerHint: 'anthropic',
+          model: 'glm-4.7',
+          input: [
+            {
+              role: 'user',
+              content: [
+                { type: 'input_image', image_url: 'https://example.com/cat.png' },
+              ],
+            },
+          ],
+        }),
+      }),
+      { ENVIRONMENT: 'test', ANTHROPIC_API_KEY: 'anthropic-secret' },
+      ctx,
+    )
+
+    expect(response.status).toBe(422)
+  })
 })

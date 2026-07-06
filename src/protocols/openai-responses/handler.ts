@@ -35,6 +35,7 @@ export async function handleOpenAIResponses(request: Request, env: AppEnv, reque
     stream: normalized.stream,
   })
   if (normalized.stream) {
+    const upstreamStartedAt = Date.now()
     const events =
       provider === 'openai'
         ? await invokeOpenAIResponsesStream(normalized, env)
@@ -43,6 +44,15 @@ export async function handleOpenAIResponses(request: Request, env: AppEnv, reque
           : (() => {
               throw new ValidationError(`Unsupported provider selected for OpenAI Responses route: ${provider}`)
             })()
+    const upstreamLatencyMs = Date.now() - upstreamStartedAt
+    log(env, 'info', 'upstream_invocation_ready', {
+      requestId: requestContext.requestId,
+      routeProtocol: 'responses',
+      provider,
+      model: normalized.targetModel,
+      stream: true,
+      upstreamLatencyMs,
+    })
 
     return new Response(renderOpenAIResponsesStream(events), {
       status: 200,
@@ -52,10 +62,12 @@ export async function handleOpenAIResponses(request: Request, env: AppEnv, reque
         'x-request-id': requestContext.requestId,
         'x-omni-selected-provider': provider,
         'x-omni-route-protocol': 'responses',
+        'x-omni-upstream-latency-ms': String(upstreamLatencyMs),
       },
     })
   }
 
+  const upstreamStartedAt = Date.now()
   const result =
     provider === 'openai'
       ? await invokeOpenAIResponses(normalized, env)
@@ -64,12 +76,22 @@ export async function handleOpenAIResponses(request: Request, env: AppEnv, reque
         : (() => {
             throw new ValidationError(`Unsupported provider selected for OpenAI Responses route: ${provider}`)
           })()
+  const upstreamLatencyMs = Date.now() - upstreamStartedAt
+  log(env, 'info', 'upstream_invocation_ready', {
+    requestId: requestContext.requestId,
+    routeProtocol: 'responses',
+    provider,
+    model: normalized.targetModel,
+    stream: false,
+    upstreamLatencyMs,
+  })
   return jsonResponse(renderOpenAIResponsesResponse(result), {
     status: 200,
     headers: {
       'x-request-id': requestContext.requestId,
       'x-omni-selected-provider': provider,
       'x-omni-route-protocol': 'responses',
+      'x-omni-upstream-latency-ms': String(upstreamLatencyMs),
     },
   })
 }

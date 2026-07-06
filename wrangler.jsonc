@@ -9,29 +9,45 @@
   },
   "vars": {
     "ENVIRONMENT": "production",
-    "OPENAI_BASE_URL": "https://api.openai.com/v1",
-    "ANTHROPIC_BASE_URL": "https://api.anthropic.com/v1",
-    "ENABLE_DEBUG_ROUTES": "false"
+    "OPENAI_BASE_URL": "https://cpa.sim4ai.ccwu.cc/v1",
+    "ANTHROPIC_BASE_URL": "https://open.bigmodel.cn/api/anthropic/v1",
+    "ENABLE_DEBUG_ROUTES": "false",
+    "RATE_LIMIT_MAX": "60",
+    "RATE_LIMIT_PERIOD_SECONDS": "60"
   },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "RELAY_RATE_LIMITER_DO",
+        "class_name": "RelayRateLimiter"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RelayRateLimiter"]
+    }
+  ],
   "env": {
     "staging": {
       "name": "relayx-staging",
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "RELAY_RATE_LIMITER_DO",
+            "class_name": "RelayRateLimiter"
+          }
+        ]
+      },
       "vars": {
         "ENVIRONMENT": "staging",
         "OPENAI_BASE_URL": "https://cpa.sim4ai.ccwu.cc/v1",
         "ANTHROPIC_BASE_URL": "https://open.bigmodel.cn/api/anthropic/v1",
-        "ENABLE_DEBUG_ROUTES": "true"
-      },
-      "ratelimits": [
-        {
-          "name": "RATE_LIMITER",
-          "namespace_id": "1001",
-          "simple": {
-            "limit": 2,
-            "period": 10
-          }
-        }
-      ]
+        "ENABLE_DEBUG_ROUTES": "true",
+        "RATE_LIMIT_MAX": "2",
+        "RATE_LIMIT_PERIOD_SECONDS": "10"
+      }
     }
   }
 }

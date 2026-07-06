@@ -47,4 +47,28 @@ describe('OpenAI chat streaming foundations', () => {
     expect(body).toContain('relay ok')
     expect(body).toContain('[DONE]')
   })
+
+  it('handles interrupted upstream streams without buffering the whole response', async () => {
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            'data: {"id":"chatcmpl_stream_1","object":"chat.completion.chunk","model":"gpt-5-mini","choices":[{"index":0,"delta":{"content":"partial"},"finish_reason":null}]}\n\n',
+          ),
+        )
+        controller.close()
+      },
+    })
+
+    const events = []
+    for await (const event of mapOpenAIChatStreamToEvents(upstream)) {
+      events.push(event)
+    }
+
+    expect(events).toEqual([
+      { type: 'response_start', provider: 'openai', model: 'gpt-5-mini' },
+      { type: 'message_start', role: 'assistant' },
+      { type: 'content_delta', deltaType: 'text', text: 'partial' },
+    ])
+  })
 })

@@ -2,6 +2,7 @@ import { renderError } from './errors'
 import { createRequestContext, log } from './observability'
 import { routeRequest } from './router'
 import type { AppEnv } from './env'
+export { RelayRateLimiter } from './rate-limit-do'
 
 export default {
   async fetch(request: Request, env: AppEnv, ctx: ExecutionContext): Promise<Response> {

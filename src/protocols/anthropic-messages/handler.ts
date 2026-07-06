@@ -35,6 +35,7 @@ export async function handleAnthropicMessages(request: Request, env: AppEnv, req
     stream: normalized.stream,
   })
   if (normalized.stream) {
+    const upstreamStartedAt = Date.now()
     const events =
       provider === 'anthropic'
         ? await invokeAnthropicMessagesStream(normalized, env)
@@ -43,6 +44,15 @@ export async function handleAnthropicMessages(request: Request, env: AppEnv, req
           : (() => {
               throw new ValidationError(`Unsupported provider selected for Anthropic Messages route: ${provider}`)
             })()
+    const upstreamLatencyMs = Date.now() - upstreamStartedAt
+    log(env, 'info', 'upstream_invocation_ready', {
+      requestId: requestContext.requestId,
+      routeProtocol: 'messages',
+      provider,
+      model: normalized.targetModel,
+      stream: true,
+      upstreamLatencyMs,
+    })
 
     return new Response(renderAnthropicMessagesStream(events), {
       status: 200,
@@ -52,10 +62,12 @@ export async function handleAnthropicMessages(request: Request, env: AppEnv, req
         'x-request-id': requestContext.requestId,
         'x-omni-selected-provider': provider,
         'x-omni-route-protocol': 'messages',
+        'x-omni-upstream-latency-ms': String(upstreamLatencyMs),
       },
     })
   }
 
+  const upstreamStartedAt = Date.now()
   const result =
     provider === 'anthropic'
       ? await invokeAnthropicMessages(normalized, env)
@@ -64,12 +76,22 @@ export async function handleAnthropicMessages(request: Request, env: AppEnv, req
         : (() => {
             throw new ValidationError(`Unsupported provider selected for Anthropic Messages route: ${provider}`)
           })()
+  const upstreamLatencyMs = Date.now() - upstreamStartedAt
+  log(env, 'info', 'upstream_invocation_ready', {
+    requestId: requestContext.requestId,
+    routeProtocol: 'messages',
+    provider,
+    model: normalized.targetModel,
+    stream: false,
+    upstreamLatencyMs,
+  })
   return jsonResponse(renderAnthropicMessagesResponse(result), {
     status: 200,
     headers: {
       'x-request-id': requestContext.requestId,
       'x-omni-selected-provider': provider,
       'x-omni-route-protocol': 'messages',
+      'x-omni-upstream-latency-ms': String(upstreamLatencyMs),
     },
   })
 }

@@ -44,6 +44,7 @@ describe('POST /v1/messages', () => {
 
     expect(response.status).toBe(200)
     expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(response.headers.get('x-omni-upstream-latency-ms')).toBeTruthy()
 
     const [url] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
     expect(url).toBe('https://api.anthropic.com/v1/messages')

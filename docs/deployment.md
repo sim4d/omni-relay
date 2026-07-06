@@ -31,6 +31,34 @@ npx wrangler secret put RELAY_API_KEY
 - `RELAY_API_KEY` — optional, but recommended to protect relay routes and `/v1/debug/translate`
 - ingress auth accepts either `Authorization: Bearer <relay-key>` or `x-api-key: <relay-key>`
 
+## Rate limiting configuration
+
+The relay now prefers a Durable Object-backed limiter that is verifiable on Workers compute.
+
+Required non-secret vars:
+
+- `RATE_LIMIT_MAX`
+- `RATE_LIMIT_PERIOD_SECONDS`
+
+Required binding:
+
+- `RELAY_RATE_LIMITER_DO`
+
+The checked-in `wrangler.jsonc` includes:
+
+- a `RelayRateLimiter` Durable Object binding
+- a `v1` SQLite migration for that class
+- production defaults of `60 requests / 60 seconds`
+- staging defaults of `2 requests / 10 seconds`
+
+## Runtime configuration notes
+
+- `nodejs_compat` is **not enabled**. The current relay only depends on platform-native Web APIs and does not require Node.js compatibility shims.
+- Production defaults now target the compatible backends used by this project:
+  - OpenAI-compatible: `https://cpa.sim4ai.ccwu.cc/v1`
+  - Anthropic-compatible: `https://open.bigmodel.cn/api/anthropic/v1`
+- Staging uses the same compatible backend pair with a much stricter limiter for proof-oriented testing.
+
 ## Verification checklist
 
 ### Health
@@ -69,34 +97,52 @@ curl https://<worker>.workers.dev/v1/debug/translate \
   -d '{"protocol":"chat","payload":{"model":"gpt-5.4-nano","messages":[{"role":"user","content":"Hello"}]}}'
 ```
 
-## Current known verification blockers
+## Current verification status
 
-Full live upstream verification depends on valid provider secrets being present in the deployed Worker environment. If a provider secret is missing or invalid, the Worker should still return a structured JSON error that identifies the missing or rejected upstream credential.
+As of July 6, 2026:
+
+- staging and production both serve `/healthz`
+- staging and production both verified:
+  - OpenAI-style ingress → Anthropic-compatible upstream
+  - Anthropic-style ingress → OpenAI-compatible upstream
+- staging verified:
+  - end-to-end SSE streaming on compute
+  - Durable Object-backed `429` rate limiting on compute
+- production verified:
+  - debug route remains disabled by default
 
 
-## Optional rate limiting binding
+## Rate-limit verification
 
-You can enable Cloudflare-native rate limiting by adding a `ratelimits` binding to `wrangler.jsonc` and exposing it as `RATE_LIMITER`:
+Use staging to prove `429` behavior on compute:
 
-```jsonc
-{
-  "ratelimits": [
-    {
-      "name": "RATE_LIMITER",
-      "namespace_id": "relayx-rate-limit-v1",
-      "simple": {
-        "limit": 120,
-        "period": 60
-      }
-    }
-  ]
-}
+```bash
+for i in 1 2 3; do
+  curl https://relayx-staging.sim4d.workers.dev/v1/debug/translate \
+    -H 'content-type: application/json' \
+    -H 'x-api-key: <relay-key>' \
+    --data '{"protocol":"chat","payload":{"model":"gpt-5-mini","messages":[{"role":"user","content":"Hello"}]}}'
+  echo
+done
 ```
 
-When present, the Worker uses the binding on `/v1/chat/completions`, `/v1/responses`, `/v1/messages`, and `/v1/debug/translate`.
+With the current staging config (`2 requests / 10 seconds`), the third request should return a structured `429`.
 
 ## Debug route security
 
 - `/v1/debug/translate` is **disabled by default in production**.
 - Enable it by setting `ENABLE_DEBUG_ROUTES=true`.
-- It also requires `RELAY_API_KEY` to be configured and supplied as `Authorization: Bearer <key>`.
+- It also requires `RELAY_API_KEY` to be configured and supplied as either:
+  - `Authorization: Bearer <key>`
+  - `x-api-key: <key>`
+
+## Rollback notes
+
+If a deployment needs to be reversed:
+
+```bash
+npx wrangler versions list
+npx wrangler rollback
+```
+
+Use staging first when changing bindings, migrations, or upstream base URLs, then promote to production only after compute verification succeeds.

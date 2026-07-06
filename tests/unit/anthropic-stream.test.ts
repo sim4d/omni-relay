@@ -56,4 +56,50 @@ describe('Anthropic streaming foundations', () => {
     expect(body).toContain('message_stop')
     expect(body).toContain('omni relay ok')
   })
+
+  it('maps Anthropic tool-call deltas into normalized events', async () => {
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            'event: message_start\n' +
+            'data: {"type":"message_start","message":{"id":"msg_1","model":"glm-4.7"}}\n\n' +
+            'event: content_block_start\n' +
+            'data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"tool_1","name":"lookup_weather"}}\n\n' +
+            'event: content_block_delta\n' +
+            'data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\\"city\\":\\"Pa"}}\n\n' +
+            'event: content_block_stop\n' +
+            'data: {"type":"content_block_stop","index":0}\n\n' +
+            'event: message_stop\n' +
+            'data: {"type":"message_stop"}\n\n',
+          ),
+        )
+        controller.close()
+      },
+    })
+
+    const events = []
+    for await (const event of mapAnthropicStreamToEvents(upstream)) {
+      events.push(event)
+    }
+
+    expect(events).toContainEqual({ type: 'tool_call_start', id: 'tool_1', name: 'lookup_weather' })
+    expect(events).toContainEqual({ type: 'tool_call_delta', id: 'tool_1', argumentsDelta: '{"city":"Pa' })
+    expect(events).toContainEqual({ type: 'tool_call_end', id: 'tool_1' })
+  })
+
+  it('fails clearly on invalid upstream JSON chunks', async () => {
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('event: message_start\ndata: not-json\n\n'))
+        controller.close()
+      },
+    })
+
+    await expect(async () => {
+      for await (const _event of mapAnthropicStreamToEvents(upstream)) {
+        // exhaust
+      }
+    }).rejects.toThrow('Anthropic streaming chunk was not valid JSON')
+  })
 })

@@ -49,6 +49,7 @@ describe('POST /v1/chat/completions', () => {
 
     expect(response.status).toBe(200)
     expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(response.headers.get('x-omni-upstream-latency-ms')).toBeTruthy()
 
     const [url, init] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
     expect(url).toBe('https://api.openai.com/v1/responses')
@@ -118,6 +119,7 @@ describe('POST /v1/chat/completions', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toContain('text/event-stream')
+    expect(response.headers.get('x-omni-upstream-latency-ms')).toBeTruthy()
 
     const [, init] = vi.mocked(fetch).mock.calls[0]! as unknown as [string, RequestInit]
     const upstreamPayload = JSON.parse(String(init.body)) as Record<string, unknown>

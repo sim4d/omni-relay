@@ -27,7 +27,7 @@ The following decisions are locked for Milestone 1 and will be treated as the de
 - Multi-turn conversational input
 - Instructions/system prompts
 - Non-streaming requests and responses
-- Streaming contract design in the IR
+- Streaming requests and responses for Chat, Responses, and Messages routes
 - Custom function tools as a normalized abstraction
 - Provider hinting
 - Model-to-provider routing foundations
@@ -43,3 +43,4 @@ The following decisions are locked for Milestone 1 and will be treated as the de
 - Multimodal image/file normalization
 - Multi-tenant auth, quotas, and billing
 - Failover and cost-aware routing
+- Durable session persistence abstractions across providers
