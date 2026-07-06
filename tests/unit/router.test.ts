@@ -19,9 +19,9 @@ describe('worker routing scaffold', () => {
     expect(payload.service).toBe('omni-relay')
   })
 
-  it('returns 501 for scaffolded chat completions route', async () => {
+  it('returns 400 for chat completions requests with invalid JSON bodies', async () => {
     const response = await worker.fetch(new Request('https://example.com/v1/chat/completions', { method: 'POST' }), env, ctx)
-    expect(response.status).toBe(501)
+    expect(response.status).toBe(400)
   })
 
   it('returns 404 for unknown routes', async () => {

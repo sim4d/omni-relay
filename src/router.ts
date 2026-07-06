@@ -2,6 +2,7 @@ import { MethodNotAllowedError, NotFoundError, NotImplementedError } from './err
 import { jsonResponse } from './lib/http'
 import type { AppEnv } from './env'
 import type { RequestContext } from './observability'
+import { handleOpenAIChatCompletions } from './protocols/openai-chat/handler'
 
 export async function routeRequest(request: Request, env: AppEnv, ctx: ExecutionContext, requestContext: RequestContext): Promise<Response> {
   void env
@@ -34,7 +35,7 @@ export async function routeRequest(request: Request, env: AppEnv, ctx: Execution
       throw new MethodNotAllowedError('Only POST is allowed for /v1/chat/completions')
     }
 
-    throw new NotImplementedError('POST /v1/chat/completions is scaffolded but not implemented yet')
+    return handleOpenAIChatCompletions(request, env, requestContext)
   }
 
   if (url.pathname === '/v1/responses') {
