@@ -1,8 +1,10 @@
-import { MethodNotAllowedError, NotFoundError, NotImplementedError } from './errors'
+import { MethodNotAllowedError, NotFoundError } from './errors'
 import { jsonResponse } from './lib/http'
 import type { AppEnv } from './env'
 import type { RequestContext } from './observability'
+import { handleAnthropicMessages } from './protocols/anthropic-messages/handler'
 import { handleOpenAIChatCompletions } from './protocols/openai-chat/handler'
+import { handleOpenAIResponses } from './protocols/openai-responses/handler'
 
 export async function routeRequest(request: Request, env: AppEnv, ctx: ExecutionContext, requestContext: RequestContext): Promise<Response> {
   void env
@@ -43,7 +45,7 @@ export async function routeRequest(request: Request, env: AppEnv, ctx: Execution
       throw new MethodNotAllowedError('Only POST is allowed for /v1/responses')
     }
 
-    throw new NotImplementedError('POST /v1/responses is scaffolded but not implemented yet')
+    return handleOpenAIResponses(request, env, requestContext)
   }
 
   if (url.pathname === '/v1/messages') {
@@ -51,7 +53,7 @@ export async function routeRequest(request: Request, env: AppEnv, ctx: Execution
       throw new MethodNotAllowedError('Only POST is allowed for /v1/messages')
     }
 
-    throw new NotImplementedError('POST /v1/messages is scaffolded but not implemented yet')
+    return handleAnthropicMessages(request, env, requestContext)
   }
 
   throw new NotFoundError(`No route registered for ${request.method} ${url.pathname}`)

@@ -1,0 +1,55 @@
+import worker from '../../src/index'
+
+describe('POST /v1/messages', () => {
+  const env = {
+    ENVIRONMENT: 'test',
+    ANTHROPIC_API_KEY: 'anthropic-secret',
+  }
+
+  const ctx = {
+    waitUntil() {},
+    passThroughOnException() {},
+  } as unknown as ExecutionContext
+
+  it('calls Anthropic upstream and returns an Anthropic-compatible message response', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          id: 'msg_upstream_1',
+          type: 'message',
+          model: 'claude-sonnet-4-0',
+          content: [{ type: 'text', text: 'omni relay ok' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 5, output_tokens: 4 },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-0',
+          max_tokens: 256,
+          messages: [{ role: 'user', content: 'Hello' }],
+        }),
+      }),
+      env,
+      ctx,
+    )
+
+    expect(response.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    const [url] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
+    expect(url).toBe('https://api.anthropic.com/v1/messages')
+
+    const payload = await response.json() as Record<string, unknown>
+    expect(payload.type).toBe('message')
+    expect((payload.content as Array<Record<string, unknown>>)[0]?.text).toBe('omni relay ok')
+  })
+})
