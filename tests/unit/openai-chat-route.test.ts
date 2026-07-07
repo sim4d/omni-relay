@@ -2,8 +2,12 @@ import worker from '../../src/index'
 
 describe('POST /v1/chat/completions', () => {
   const env = {
-    OPENAI_API_KEY: 'upstream-secret',
-    OPENAI_BASE_URL: 'https://openai.example/v1',
+    OPENAI_BASE_1: 'https://openai.example/v1',
+    OPENAI_API_1: 'upstream-secret',
+    OPENAI_MODEL_1: 'gpt-*',
+    ANTHROPIC_BASE_1: 'https://anthropic.example/v1',
+    ANTHROPIC_AUTH_1: 'anthropic-secret',
+    ANTHROPIC_MODEL_1: 'claude-*',
     RELAY_API_KEY: 'relay-secret',
   }
 
@@ -47,7 +51,7 @@ describe('POST /v1/chat/completions', () => {
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }),
-      { ...env, OPENAI_WIRE_API: 'responses' },
+      { ...env, OPENAI_WIRE_1: 'responses' },
       ctx,
     )
 
@@ -64,7 +68,7 @@ describe('POST /v1/chat/completions', () => {
     expect((payload.choices as Array<Record<string, unknown>>)[0]?.finish_reason).toBe('stop')
   })
 
-  it('defaults to the chat-completions upstream when OPENAI_WIRE_API is unset', async () => {
+  it('defaults to the chat-completions upstream when OPENAI_WIRE_1 is unset', async () => {
     const fetchMock = vi.fn(async () =>
       new Response(
         JSON.stringify({
@@ -163,7 +167,7 @@ describe('POST /v1/chat/completions', () => {
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }),
-      { ...env, OPENAI_WIRE_API: 'responses' },
+      { ...env, OPENAI_WIRE_1: 'responses' },
       ctx,
     )
 
@@ -208,11 +212,7 @@ describe('POST /v1/chat/completions', () => {
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }),
-      {
-        ANTHROPIC_API_KEY: 'anthropic-secret',
-        ANTHROPIC_BASE_URL: 'https://anthropic.example/v1',
-        RELAY_API_KEY: 'relay-secret',
-      },
+      env,
       ctx,
     )
 

@@ -1,6 +1,30 @@
 export type ProviderId = 'openai' | 'anthropic'
 export type ProviderHint = ProviderId | 'auto'
 
+export type UpstreamKind = 'openai' | 'anthropic'
+
+export type WireApi = 'chat_completions' | 'responses'
+
+// A fully-resolved upstream target. One Worker may declare many of these; the
+// request is routed to exactly one by matching `targetModel` against
+// `modelGlobs`. Auth is kind-specific: `apiKey` for OpenAI-compatible targets
+// (sent as `Authorization: Bearer`), `authToken` for Anthropic-compatible
+// gateways (also Bearer). `wireApi` selects the OpenAI wire format.
+export type UpstreamTarget = {
+  slot: number                          // 1-based index, stable within a kind
+  kind: UpstreamKind
+  baseUrl: string                       // normalized, no trailing slash
+  apiKey?: string                       // openai
+  authToken?: string                    // anthropic
+  wireApi?: WireApi                     // openai only; defaults to 'chat_completions'
+  modelGlobs: string[]                  // lowercase glob patterns, e.g. ['gpt-*','glm-4*']
+}
+
+export type UpstreamTargetsConfig = {
+  openai: UpstreamTarget[]
+  anthropic: UpstreamTarget[]
+}
+
 export type ProviderExtensionBlock = {
   type: 'provider_extension'
   provider: string
@@ -64,6 +88,7 @@ export type OutputControls = {
 export type NormalizedRequest = {
   targetModel: string
   providerHint?: ProviderHint
+  targetSlot?: number
   instructions: ContentBlock[]
   messages: NormalizedMessage[]
   tools?: NormalizedTool[]

@@ -28,7 +28,7 @@ describe('feature gating', () => {
           },
         }),
       }),
-      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1', RELAY_API_KEY: 'relay-secret' },
+      { ANTHROPIC_BASE_1: 'https://anthropic.example/v1', ANTHROPIC_AUTH_1: 'anthropic-secret', ANTHROPIC_MODEL_1: 'claude-*', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -70,7 +70,7 @@ describe('feature gating', () => {
           },
         }),
       }),
-      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1', OPENAI_WIRE_API: 'responses', RELAY_API_KEY: 'relay-secret' },
+      { OPENAI_BASE_1: 'https://openai.example/v1', OPENAI_API_1: 'openai-secret', OPENAI_WIRE_1: 'responses', OPENAI_MODEL_1: 'gpt-*', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -123,7 +123,7 @@ describe('feature gating', () => {
           reasoning: { effort: 'high' },
         }),
       }),
-      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1', OPENAI_WIRE_API: 'responses', RELAY_API_KEY: 'relay-secret' },
+      { OPENAI_BASE_1: 'https://openai.example/v1', OPENAI_API_1: 'openai-secret', OPENAI_WIRE_1: 'responses', OPENAI_MODEL_1: 'glm-*', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -160,7 +160,7 @@ describe('feature gating', () => {
           ],
         }),
       }),
-      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1', RELAY_API_KEY: 'relay-secret' },
+      { ANTHROPIC_BASE_1: 'https://anthropic.example/v1', ANTHROPIC_AUTH_1: 'anthropic-secret', ANTHROPIC_MODEL_1: 'glm-*', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -191,7 +191,7 @@ describe('feature gating', () => {
           ],
         }),
       }),
-      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1', RELAY_API_KEY: 'relay-secret' },
+      { OPENAI_BASE_1: 'https://openai.example/v1', OPENAI_API_1: 'openai-secret', OPENAI_MODEL_1: 'glm-*', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -221,7 +221,7 @@ describe('feature gating', () => {
           ],
         }),
       }),
-      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1', RELAY_API_KEY: 'relay-secret' },
+      { ANTHROPIC_BASE_1: 'https://anthropic.example/v1', ANTHROPIC_AUTH_1: 'anthropic-secret', ANTHROPIC_MODEL_1: 'glm-*', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 

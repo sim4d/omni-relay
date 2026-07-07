@@ -1,30 +1,27 @@
 import { AuthenticationError, UpstreamAPIError } from '../../errors'
-import type { AppEnv } from '../../env'
-import type { NormalizedRequest, NormalizedResult } from '../../core/ir'
+import type { NormalizedRequest, NormalizedResult, UpstreamTarget } from '../../core/ir'
 import { parseJsonResponse } from '../../lib/fetch'
 import { mapNormalizedRequestToAnthropicMessagesRequest } from './map-request'
 import { mapAnthropicMessagesResponseToNormalizedResult } from './map-response'
 import { mapAnthropicStreamToEvents } from './map-stream'
-import { requireAnthropicBaseUrl } from '../upstream-base-url'
 
-export async function invokeAnthropicMessages(request: NormalizedRequest, env: AppEnv): Promise<NormalizedResult> {
-  if (!env.ANTHROPIC_API_KEY && !env.ANTHROPIC_AUTH_TOKEN) {
-    throw new AuthenticationError('Neither ANTHROPIC_API_KEY nor ANTHROPIC_AUTH_TOKEN is configured in the Worker environment')
+function authHeaders(target: UpstreamTarget): Record<string, string> {
+  if (!target.authToken) {
+    throw new AuthenticationError(`ANTHROPIC_AUTH_${target.slot} is not configured in the Worker environment`)
   }
-  const anthropicBaseUrl = requireAnthropicBaseUrl(env)
+  return {
+    authorization: `Bearer ${target.authToken}`,
+  }
+}
 
+export async function invokeAnthropicMessages(request: NormalizedRequest, target: UpstreamTarget): Promise<NormalizedResult> {
   const headers: Record<string, string> = {
     'content-type': 'application/json',
     'anthropic-version': '2023-06-01',
-  }
-  if (env.ANTHROPIC_AUTH_TOKEN) {
-    headers.authorization = `Bearer ${env.ANTHROPIC_AUTH_TOKEN}`
-  }
-  if (env.ANTHROPIC_API_KEY) {
-    headers['x-api-key'] = env.ANTHROPIC_API_KEY
+    ...authHeaders(target),
   }
 
-  const upstream = await fetch(`${anthropicBaseUrl}/messages`, {
+  const upstream = await fetch(`${target.baseUrl}/messages`, {
     method: 'POST',
     headers,
     body: JSON.stringify(mapNormalizedRequestToAnthropicMessagesRequest(request)),
@@ -42,24 +39,14 @@ export async function invokeAnthropicMessages(request: NormalizedRequest, env: A
   return mapAnthropicMessagesResponseToNormalizedResult(payload)
 }
 
-export async function invokeAnthropicMessagesStream(request: NormalizedRequest, env: AppEnv): Promise<AsyncIterable<import('../../core/stream-events').NormalizedEvent>> {
-  if (!env.ANTHROPIC_API_KEY && !env.ANTHROPIC_AUTH_TOKEN) {
-    throw new AuthenticationError('Neither ANTHROPIC_API_KEY nor ANTHROPIC_AUTH_TOKEN is configured in the Worker environment')
-  }
-  const anthropicBaseUrl = requireAnthropicBaseUrl(env)
-
+export async function invokeAnthropicMessagesStream(request: NormalizedRequest, target: UpstreamTarget): Promise<AsyncIterable<import('../../core/stream-events').NormalizedEvent>> {
   const headers: Record<string, string> = {
     'content-type': 'application/json',
     'anthropic-version': '2023-06-01',
-  }
-  if (env.ANTHROPIC_AUTH_TOKEN) {
-    headers.authorization = `Bearer ${env.ANTHROPIC_AUTH_TOKEN}`
-  }
-  if (env.ANTHROPIC_API_KEY) {
-    headers['x-api-key'] = env.ANTHROPIC_API_KEY
+    ...authHeaders(target),
   }
 
-  const upstream = await fetch(`${anthropicBaseUrl}/messages`, {
+  const upstream = await fetch(`${target.baseUrl}/messages`, {
     method: 'POST',
     headers,
     body: JSON.stringify({

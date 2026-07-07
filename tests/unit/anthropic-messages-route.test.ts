@@ -2,8 +2,9 @@ import worker from '../../src/index'
 
 describe('POST /v1/messages', () => {
   const env = {
-    ANTHROPIC_API_KEY: 'anthropic-secret',
-    ANTHROPIC_BASE_URL: 'https://anthropic.example/v1',
+    ANTHROPIC_BASE_1: 'https://anthropic.example/v1',
+    ANTHROPIC_AUTH_1: 'anthropic-secret',
+    ANTHROPIC_MODEL_1: 'claude-*',
     RELAY_API_KEY: 'relay-secret',
   }
 
@@ -139,7 +140,7 @@ describe('POST /v1/messages', () => {
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }),
-      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
+      { ANTHROPIC_BASE_1: 'https://anthropic.example/v1', ANTHROPIC_AUTH_1: 'anthropic-secret', ANTHROPIC_MODEL_1: 'claude-*' },
       ctx,
     )
 

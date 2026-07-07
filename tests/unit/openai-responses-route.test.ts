@@ -2,8 +2,9 @@ import worker from '../../src/index'
 
 describe('POST /v1/responses', () => {
   const env = {
-    OPENAI_API_KEY: 'upstream-secret',
-    OPENAI_BASE_URL: 'https://openai.example/v1',
+    OPENAI_BASE_1: 'https://openai.example/v1',
+    OPENAI_API_1: 'upstream-secret',
+    OPENAI_MODEL_1: 'gpt-*,glm-*',
     RELAY_API_KEY: 'relay-secret',
   }
 
@@ -51,7 +52,7 @@ describe('POST /v1/responses', () => {
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
         }),
       }),
-      { ...env, OPENAI_WIRE_API: 'responses' },
+      { ...env, OPENAI_WIRE_1: 'responses' },
       ctx,
     )
 
@@ -104,7 +105,7 @@ describe('POST /v1/responses', () => {
           tools: [{ type: 'custom', name: 'codex', description: 'Run commands' }],
         }),
       }),
-      { ...env, OPENAI_WIRE_API: 'responses' },
+      { ...env, OPENAI_WIRE_1: 'responses' },
       ctx,
     )
 
@@ -163,7 +164,7 @@ describe('POST /v1/responses', () => {
       }),
       {
         ...env,
-        OPENAI_WIRE_API: 'chat_completions',
+        OPENAI_WIRE_1: 'chat_completions',
       },
       ctx,
     )
@@ -176,7 +177,7 @@ describe('POST /v1/responses', () => {
     expect(payload.output_text).toBe('omni relay ok via chat upstream')
   })
 
-  it('fails clearly when OPENAI_BASE_URL is missing', async () => {
+  it('fails clearly when OPENAI_BASE_1 is missing', async () => {
     vi.stubGlobal('fetch', vi.fn())
 
     const response = await worker.fetch(
@@ -192,7 +193,8 @@ describe('POST /v1/responses', () => {
         }),
       }),
       {
-        OPENAI_API_KEY: 'upstream-secret',
+        OPENAI_API_1: 'upstream-secret',
+        OPENAI_MODEL_1: 'gpt-*',
         RELAY_API_KEY: 'relay-secret',
       },
       ctx,
@@ -202,7 +204,7 @@ describe('POST /v1/responses', () => {
     await expect(response.json()).resolves.toMatchObject({
       error: {
         code: 'internal_error',
-        message: expect.stringContaining('OPENAI_BASE_URL'),
+        message: expect.stringContaining('OPENAI_BASE_1'),
       },
     })
     expect(fetch).not.toHaveBeenCalled()
@@ -243,7 +245,7 @@ describe('POST /v1/responses', () => {
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
         }),
       }),
-      { OPENAI_API_KEY: 'upstream-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
+      { OPENAI_BASE_1: 'https://openai.example/v1', OPENAI_API_1: 'upstream-secret', OPENAI_MODEL_1: 'gpt-*' },
       ctx,
     )
 

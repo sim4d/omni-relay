@@ -36,7 +36,7 @@ describe('providerHint override', () => {
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }),
-      { ANTHROPIC_AUTH_TOKEN: 'token', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1', RELAY_API_KEY: 'relay-secret' },
+      { ANTHROPIC_BASE_1: 'https://anthropic.example/v1', ANTHROPIC_AUTH_1: 'token', ANTHROPIC_MODEL_1: 'glm-*', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 

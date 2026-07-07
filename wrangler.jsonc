@@ -8,9 +8,15 @@
     "head_sampling_rate": 1
   },
   "vars": {
-    "OPENAI_BASE_URL": "https://cpa.sim4ai.ccwu.cc/v1",
-    "OPENAI_WIRE_API": "chat_completions",
-    "ANTHROPIC_BASE_URL": "https://cpa.sim4ai.ccwu.cc"
+    // Per-target upstream config. Add more slots by incrementing the trailing
+    // number (OPENAI_BASE_2, ...). Each OpenAI target needs BASE, API (a secret
+    // set via `wrangler secret put`), and MODEL; OPENAI_WIRE_<N> is optional
+    // (defaults to chat_completions; set to 'responses' for a Responses target).
+    // Anthropic targets need BASE, AUTH (a secret), and MODEL.
+    "OPENAI_BASE_1": "https://cpa.sim4ai.ccwu.cc/v1",
+    "OPENAI_MODEL_1": "glm-5.2",
+    "ANTHROPIC_BASE_1": "https://cpa.sim4ai.ccwu.cc",
+    "ANTHROPIC_MODEL_1": "MiniMax-M3"
   },
   "migrations": [
     {

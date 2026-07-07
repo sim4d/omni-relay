@@ -22,7 +22,16 @@ describe('POST /v1/debug/translate', () => {
           },
         }),
       }),
-      { ENABLE_DEBUG_ROUTES: 'true', RELAY_API_KEY: 'relay-secret' },
+      {
+        ENABLE_DEBUG_ROUTES: 'true',
+        RELAY_API_KEY: 'relay-secret',
+        OPENAI_BASE_1: 'https://openai.example/v1',
+        OPENAI_API_1: 'openai-secret',
+        OPENAI_MODEL_1: 'gpt-*',
+        ANTHROPIC_BASE_1: 'https://anthropic.example/v1',
+        ANTHROPIC_AUTH_1: 'anthropic-secret',
+        ANTHROPIC_MODEL_1: 'claude-*',
+      },
       ctx,
     )
 
@@ -49,7 +58,16 @@ describe('POST /v1/debug/translate', () => {
           },
         }),
       }),
-      { ENABLE_DEBUG_ROUTES: 'true', RELAY_API_KEY: 'relay-secret' },
+      {
+        ENABLE_DEBUG_ROUTES: 'true',
+        RELAY_API_KEY: 'relay-secret',
+        OPENAI_BASE_1: 'https://openai.example/v1',
+        OPENAI_API_1: 'openai-secret',
+        OPENAI_MODEL_1: 'gpt-*',
+        ANTHROPIC_BASE_1: 'https://anthropic.example/v1',
+        ANTHROPIC_AUTH_1: 'anthropic-secret',
+        ANTHROPIC_MODEL_1: 'claude-*',
+      },
       ctx,
     )
 

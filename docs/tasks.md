@@ -222,10 +222,10 @@ This checklist converts `new-plan.md` into concrete implementation tasks.
 ## 8. Add provider selection and feature gating
 
 ### Routing rules
-- [ ] Respect explicit `providerHint`
-- [ ] Add model-to-provider mapping table
-- [ ] Add fallback model-prefix heuristics
-- [ ] Add per-route default behavior where needed
+- [x] Respect explicit `providerHint`
+- [x] Add model-to-provider mapping table — realized as per-target model globs (`OPENAI_MODEL_<N>` / `ANTHROPIC_MODEL_<N>`); a request matches the first target whose glob covers its model
+- [x] Add fallback model-prefix heuristics — replaced by explicit globs (no implicit prefix table)
+- [x] Add per-route default behavior where needed
 
 ### Feature gating
 - [ ] Reject unsupported cross-provider provider-native tools

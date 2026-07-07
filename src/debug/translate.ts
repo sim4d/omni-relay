@@ -1,6 +1,7 @@
 import { AuthenticationError, ValidationError } from '../errors'
 import { parseRelayCredential, validateRelayAuthorization } from '../auth'
-import { selectProvider } from '../core/routing'
+import { selectUpstreamTarget } from '../core/routing'
+import { resolveUpstreamTargets } from '../config'
 import type { AppEnv } from '../env'
 import { jsonResponse } from '../lib/http'
 import { readJsonBody } from '../lib/json'
@@ -35,12 +36,16 @@ export async function handleDebugTranslate(request: Request, env: AppEnv, reques
         ? parseOpenAIResponsesRequest(payload)
         : parseAnthropicMessagesRequest(payload)
 
-  const provider = selectProvider(normalized)
+  const targets = resolveUpstreamTargets(env)
+  const target = selectUpstreamTarget(normalized, targets)
+  normalized.targetSlot = target.slot
 
   return jsonResponse({
     ok: true,
     protocol,
-    provider,
+    provider: target.kind,
+    upstreamSlot: target.slot,
+    wireApi: target.wireApi,
     normalized,
     request_id: requestContext.requestId,
   }, {
@@ -50,3 +55,4 @@ export async function handleDebugTranslate(request: Request, env: AppEnv, reques
     },
   })
 }
+

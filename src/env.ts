@@ -1,10 +1,7 @@
-export interface AppEnv {
-  OPENAI_BASE_URL?: string
-  OPENAI_WIRE_API?: 'responses' | 'chat_completions' | (string & {})
-  ANTHROPIC_BASE_URL?: string
-  ENABLE_DEBUG_ROUTES?: string
-  RELAY_API_KEY?: string
-  OPENAI_API_KEY?: string
-  ANTHROPIC_API_KEY?: string
-  ANTHROPIC_AUTH_TOKEN?: string
-}
+// The Worker runtime injects every binding — plaintext `vars` from wrangler.jsonc
+// and encrypted secrets set via `wrangler secret put` — as `env[key]` strings.
+// Multi-target support means the binding surface is open-ended (e.g.
+// `OPENAI_BASE_1`, `OPENAI_BASE_2`, ...), so we type the bag as a string map
+// and validate names explicitly in `src/config.ts`.
+
+export type AppEnv = Record<string, string | undefined>
