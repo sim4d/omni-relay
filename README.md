@@ -1,5 +1,9 @@
 # omni-relay
 
+[![Deploy to Cloudflare Workers](https://img.shields.io/badge/Deploy-Cloudflare%20Workers-orange?logo=cloudflare)](https://workers.cloudflare.com/)
+[![OpenAI Compatible](https://img.shields.io/badge/OpenAI-Compatible-green)](https://openai.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A universal LLM API relay and protocol translator for OpenAI and Anthropic, built for Cloudflare Workers.
 
 ## Project goal
@@ -29,6 +33,66 @@ Backend selection is a configuration and routing concern, not a client lock-in. 
 - OpenAI-compatible: `https://open.bigmodel.cn/api/coding/paas/v4`
 
 For cross-provider calls, set `providerHint` in the request body when model-prefix auto-routing is not enough.
+
+## Quick Start
+
+Deploy `omni-relay` to Cloudflare Workers compute straight from the Cloudflare dashboard — no local toolchain required. All you need is a Cloudflare account and a copy of the repository under your own Git provider.
+
+1. **Fork or import the repository**
+
+   Fork `omni-relay` into your own GitHub or GitLab account so the dashboard can build from it.
+
+2. **Create the Worker from the dashboard**
+
+   Open the [Cloudflare dashboard](https://dash.cloudflare.com/) → **Workers & Pages** → **Create** → **Import a repository** (Workers Builds).
+
+3. **Connect your Git account**
+
+   Authorize Cloudflare to access your Git provider, then select your forked `omni-relay` repository.
+
+4. **Confirm the build settings**
+
+   - **Project name:** `relayx` (or your preferred worker name)
+   - **Production branch:** `main`
+   - **Build command:** `npm install && npm run cf-typegen`
+   - **Deploy command:** `npx wrangler deploy`
+   - **Root directory:** `/`
+
+5. **Add environment variables before the first build**
+
+   In **Settings** → **Variables and Secrets**, add the values from the [Environment variables](#environment-variables) table below. Use type **Plaintext** for base URLs and tuning vars, and **Secret** for API keys. Both `OPENAI_BASE_URL` and `ANTHROPIC_BASE_URL` are required — the relay never falls back to `api.openai.com` or `api.anthropic.com`, it only calls the URLs you configure.
+
+6. **Save and Deploy**
+
+   Select **Save and Deploy**. Workers Builds installs dependencies, runs the build, and executes `wrangler deploy` for you. The Durable Object binding (`RELAY_RATE_LIMITER_DO`) and its migration are read from `wrangler.jsonc`, so they need no manual setup.
+
+7. **Verify it is live**
+
+   Once deployed, hit the worker's health endpoint:
+
+   ```bash
+   curl https://<worker>.workers.dev/healthz
+   ```
+
+   See [Verify](#verify) below for sample requests in both protocol directions.
+
+### Environment variables
+
+In the dashboard these are configured under **Settings** → **Variables and Secrets**. Plaintext vars mirror the `vars` block in `wrangler.jsonc`; sensitive keys are stored as the **Secret** type. The Durable Object binding (`RELAY_RATE_LIMITER_DO`) is provisioned automatically by the deploy from the `durable_objects`/`migrations` config — it does not need to be added by hand.
+
+| Variable | Required | Type | Description |
+| --- | :---: | --- | --- |
+| `OPENAI_BASE_URL` | **Required** | Plaintext | Base URL of the OpenAI-compatible upstream. No built-in fallback. |
+| `ANTHROPIC_BASE_URL` | **Required** | Plaintext | Base URL of the Anthropic-compatible upstream. No built-in fallback. |
+| `OPENAI_API_KEY` | **Required** | Secret | Bearer key sent to the OpenAI upstream for OpenAI-routed requests. |
+| `ANTHROPIC_API_KEY` | Conditional | Secret | Anthropic `x-api-key`. One of this or `ANTHROPIC_AUTH_TOKEN` must be set. |
+| `ANTHROPIC_AUTH_TOKEN` | Conditional | Secret | Anthropic `Authorization: Bearer` token; alternative to `ANTHROPIC_API_KEY`. |
+| `RELAY_API_KEY` | Optional | Secret | Shared key protecting relay routes and `/v1/debug/translate`. Recommended. |
+| `ENVIRONMENT` | Optional | Plaintext | `development` (default) · `staging` · `production`. |
+| `OPENAI_WIRE_API` | Optional | Plaintext | OpenAI wire format: `responses` (default) or `chat_completions`. |
+| `ENABLE_DEBUG_ROUTES` | Optional | Plaintext | `true`/`false`. Disabled in production unless explicitly `true`. |
+| `RATE_LIMIT_MAX` | Optional | Plaintext | Positive integer; max requests allowed per window. |
+| `RATE_LIMIT_PERIOD_SECONDS` | Optional | Plaintext | Positive integer; rate-limit window length in seconds. |
 
 ## Development
 
