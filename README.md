@@ -30,7 +30,7 @@ Backend selection is a configuration and routing concern, not a client lock-in. 
 
 For cross-provider calls, set `providerHint` in the request body when model-prefix auto-routing is not enough.
 
-## Quick start
+## Development
 
 The Worker deploys via Wrangler. Configure secrets first, then build, test, and deploy.
 
@@ -47,7 +47,6 @@ npx wrangler secret put RELAY_API_KEY
 - `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` — Anthropic-routed `/v1/messages` and Anthropic cross-provider requests
 - `RELAY_API_KEY` — optional but recommended; protects relay routes and `/v1/debug/translate`
 
-## Development
 ### Build, test, deploy
 
 ```bash
