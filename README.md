@@ -4,55 +4,90 @@ A universal LLM API relay and protocol translator for OpenAI and Anthropic, buil
 
 ## Project goal
 
-The major goal of this project is to let **Codex CLI** and **Claude CLI** share the same relay while remaining free to target either:
+Let **Codex CLI** and **Claude CLI** share one relay while either client can target either an **OpenAI-compatible** or **Anthropic-compatible** upstream, in both directions:
 
-- an **OpenAI-compatible backend**
-- an **Anthropic-compatible backend**
+- OpenAI-style clients/routes onto Anthropic upstreams
+- Anthropic-style clients/routes onto OpenAI upstreams
 
-That interchangeability needs to work in both directions:
+Live verification targets:
 
-- OpenAI-style clients and routes can be forced onto Anthropic-compatible upstreams
-- Anthropic-style clients and routes can be forced onto OpenAI-compatible upstreams
+- `POST /v1/responses` → Anthropic upstream
+- `POST /v1/messages` → OpenAI upstream
+- `POST /v1/chat/completions` → either upstream where compatible
 
-Current live verification targets are:
+Relay auth is client-compatible: `Authorization: Bearer <relay-key>` for OpenAI clients, `x-api-key: <relay-key>` for Anthropic clients.
 
-- `POST /v1/responses` → Anthropic-compatible upstream
-- `POST /v1/messages` → OpenAI-compatible upstream
-- `POST /v1/chat/completions` → either upstream where the feature set is compatible
+**MVP scope:** OpenAI Chat Completions, Responses, and Anthropic Messages ingress; OpenAI and Anthropic upstream support; custom function tools as the only guaranteed cross-provider tool abstraction.
 
-Relay authentication is intentionally client-compatible:
+Deferred until after MVP: Gemini, Workers AI, OpenRouter, provider-native cross-provider tools, reasoning/thinking normalization, and failover/cost-aware routing.
 
-- OpenAI-style clients can use `Authorization: Bearer <relay-key>`
-- Anthropic-style clients can use `x-api-key: <relay-key>`
+## Backend compatibility
 
-## MVP scope
+Backend selection is a configuration and routing concern, not a client lock-in. Known-compatible base URLs:
 
-The current MVP focuses on:
-- OpenAI Chat Completions ingress
-- OpenAI Responses ingress
-- Anthropic Messages ingress
-- OpenAI upstream provider support
-- Anthropic upstream provider support
-- custom function tools as the only guaranteed cross-provider tool abstraction
-
-Explicitly deferred until after MVP:
-- Gemini
-- Workers AI
-- OpenRouter
-- provider-native tools as cross-provider abstractions
-- reasoning/thinking normalization guarantees
-- failover routing and cost-aware routing
-
-## Backend compatibility notes
-
-The relay is designed so backend selection is mostly a configuration and routing concern, not a client-lock-in decision.
-
-Known-compatible backend shapes for this project include:
-
-- Anthropic-compatible base URLs such as `https://open.bigmodel.cn/api/anthropic/v1`
-- OpenAI-compatible base URLs such as `https://open.bigmodel.cn/api/coding/paas/v4`
+- Anthropic-compatible: `https://open.bigmodel.cn/api/anthropic/v1`
+- OpenAI-compatible: `https://open.bigmodel.cn/api/coding/paas/v4`
 
 For cross-provider calls, set `providerHint` in the request body when model-prefix auto-routing is not enough.
+
+## Quick start
+
+The Worker deploys via Wrangler. Configure secrets first, then build, test, and deploy.
+
+### Secrets
+
+```bash
+npx wrangler secret put OPENAI_API_KEY
+npx wrangler secret put ANTHROPIC_API_KEY
+npx wrangler secret put ANTHROPIC_AUTH_TOKEN
+npx wrangler secret put RELAY_API_KEY
+```
+
+- `OPENAI_API_KEY` — OpenAI-routed `/v1/chat/completions`, `/v1/responses`, and OpenAI cross-provider requests
+- `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` — Anthropic-routed `/v1/messages` and Anthropic cross-provider requests
+- `RELAY_API_KEY` — optional but recommended; protects relay routes and `/v1/debug/translate`
+
+### Build, test, deploy
+
+```bash
+npm install
+npm run cf-typegen
+npm run typecheck
+npm test
+npx wrangler deploy
+```
+
+### Runtime config
+
+- `nodejs_compat` is **not enabled**; the relay uses only platform-native Web APIs.
+- `OPENAI_BASE_URL` and `ANTHROPIC_BASE_URL` are **required** runtime vars for any upstream call. There is no fallback to `api.openai.com` or `api.anthropic.com` — only the configured compatible upstreams are used.
+
+### Verify
+
+```bash
+# Health
+curl https://<worker>.workers.dev/healthz
+
+# OpenAI Responses → Anthropic upstream
+curl https://<worker>.workers.dev/v1/responses \
+  -H 'content-type: application/json' \
+  -H 'authorization: Bearer <relay-key>' \
+  -d '{"providerHint":"anthropic","model":"glm-4.7","input":[{"role":"user","content":[{"type":"input_text","text":"Reply with exactly: omni relay ok"}]}]}'
+
+# Anthropic Messages → OpenAI upstream
+curl https://<worker>.workers.dev/v1/messages \
+  -H 'content-type: application/json' \
+  -H 'x-api-key: <relay-key>' \
+  -H 'anthropic-version: 2023-06-01' \
+  -d '{"providerHint":"openai","model":"glm-5.2","max_tokens":256,"messages":[{"role":"user","content":"Reply with exactly: omni relay ok"}]}'
+```
+
+Use staging first when changing bindings, migrations, or upstream base URLs; promote to production only after compute verification succeeds.
+
+```bash
+npx wrangler versions list
+npx wrangler rollback   # if a deploy needs reversing
+```
 
 ## Development
 
@@ -62,19 +97,7 @@ npm run cf-typegen
 npm run dev
 ```
 
-Required secrets for later milestones:
-- `RELAY_API_KEY`
-- `OPENAI_API_KEY`
-- `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN`
-
-
-## Deployment
-
-See `docs/deployment.md` for secret setup, deploy commands, and remote verification examples.
-
-
 ## Security notes
 
-- `/v1/debug/translate` is disabled by default in production.
-- Set `ENABLE_DEBUG_ROUTES=true` and configure `RELAY_API_KEY` if you need the debug endpoint remotely.
-- Relay routes enforce rate limiting through a Durable Object binding when `RATE_LIMIT_MAX`, `RATE_LIMIT_PERIOD_SECONDS`, and `RELAY_RATE_LIMITER_DO` are configured.
+- `/v1/debug/translate` is **disabled by default in production**. Enable with `ENABLE_DEBUG_ROUTES=true` (also requires `RELAY_API_KEY`).
+- Relay routes enforce rate limiting through a Durable Object binding when `RATE_LIMIT_MAX`, `RATE_LIMIT_PERIOD_SECONDS`, and `RELAY_RATE_LIMITER_DO` are configured. Staging defaults (`2 requests / 10 seconds`) are stricter than production (`60 requests / 60 seconds`) for proof-oriented testing.
