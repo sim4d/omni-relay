@@ -2,7 +2,6 @@ import worker from '../../src/index'
 
 describe('worker routing scaffold', () => {
   const env = {
-    ENVIRONMENT: 'test',
   }
 
   const ctx = {

@@ -33,7 +33,7 @@ describe('providerHint override', () => {
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }),
-      { ENVIRONMENT: 'test', ANTHROPIC_AUTH_TOKEN: 'token', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
+      { ANTHROPIC_AUTH_TOKEN: 'token', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
       ctx,
     )
 

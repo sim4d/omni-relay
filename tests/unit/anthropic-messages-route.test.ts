@@ -2,7 +2,6 @@ import worker from '../../src/index'
 
 describe('POST /v1/messages', () => {
   const env = {
-    ENVIRONMENT: 'test',
     ANTHROPIC_API_KEY: 'anthropic-secret',
     ANTHROPIC_BASE_URL: 'https://anthropic.example/v1',
   }

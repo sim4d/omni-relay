@@ -64,7 +64,7 @@ Deploy `omni-relay` to Cloudflare Workers compute straight from the Cloudflare d
 
 6. **Save and Deploy**
 
-   Select **Save and Deploy**. Workers Builds installs dependencies, runs the build, and executes `wrangler deploy` for you. The Durable Object binding (`RELAY_RATE_LIMITER_DO`) and its migration are read from `wrangler.jsonc`, so they need no manual setup.
+   Select **Save and Deploy**. Workers Builds installs dependencies, runs the build, and executes `wrangler deploy` for you. All configuration comes from `wrangler.jsonc`, so there are no bindings or migrations to set up manually.
 
 7. **Verify it is live**
 
@@ -78,21 +78,17 @@ Deploy `omni-relay` to Cloudflare Workers compute straight from the Cloudflare d
 
 ### Environment variables
 
-In the dashboard these are configured under **Settings** → **Variables and Secrets**. Plaintext vars mirror the `vars` block in `wrangler.jsonc`; sensitive keys are stored as the **Secret** type. The Durable Object binding (`RELAY_RATE_LIMITER_DO`) is provisioned automatically by the deploy from the `durable_objects`/`migrations` config — it does not need to be added by hand.
+In the dashboard these are configured under **Settings** → **Variables and Secrets**. Plaintext vars mirror the `vars` block in `wrangler.jsonc`; sensitive keys are stored as the **Secret** type.
 
 | Variable | Required | Type | Description |
 | --- | :---: | --- | --- |
 | `OPENAI_BASE_URL` | **Required** | Plaintext | Base URL of the OpenAI-compatible upstream. No built-in fallback. |
 | `ANTHROPIC_BASE_URL` | **Required** | Plaintext | Base URL of the Anthropic-compatible upstream. No built-in fallback. |
-| `OPENAI_API_KEY` | **Required** | Secret | Bearer key sent to the OpenAI upstream for OpenAI-routed requests. |
-| `ANTHROPIC_API_KEY` | Conditional | Secret | Anthropic `x-api-key`. One of this or `ANTHROPIC_AUTH_TOKEN` must be set. |
-| `ANTHROPIC_AUTH_TOKEN` | Conditional | Secret | Anthropic `Authorization: Bearer` token; alternative to `ANTHROPIC_API_KEY`. |
+| `OPENAI_API_KEY` | **Required if `OPENAI_BASE_URL` is set** | Secret | Bearer key sent to the OpenAI upstream for OpenAI-routed requests. |
+| `ANTHROPIC_AUTH_TOKEN` | **Required if `ANTHROPIC_BASE_URL` is set** | Secret | Anthropic `Authorization: Bearer` token for the Anthropic upstream. |
 | `RELAY_API_KEY` | Optional | Secret | Shared key protecting relay routes and `/v1/debug/translate`. Recommended. |
-| `ENVIRONMENT` | Optional | Plaintext | `development` (default) · `staging` · `production`. |
 | `OPENAI_WIRE_API` | Optional | Plaintext | OpenAI wire format: `responses` (default) or `chat_completions`. |
-| `ENABLE_DEBUG_ROUTES` | Optional | Plaintext | `true`/`false`. Disabled in production unless explicitly `true`. |
-| `RATE_LIMIT_MAX` | Optional | Plaintext | Positive integer; max requests allowed per window. |
-| `RATE_LIMIT_PERIOD_SECONDS` | Optional | Plaintext | Positive integer; rate-limit window length in seconds. |
+| `ENABLE_DEBUG_ROUTES` | Optional | Plaintext | `true`/`false`. Disabled unless explicitly set to `true`. |
 
 ## Development
 
@@ -102,13 +98,12 @@ The Worker deploys via Wrangler. Configure secrets first, then build, test, and 
 
 ```bash
 npx wrangler secret put OPENAI_API_KEY
-npx wrangler secret put ANTHROPIC_API_KEY
 npx wrangler secret put ANTHROPIC_AUTH_TOKEN
 npx wrangler secret put RELAY_API_KEY
 ```
 
 - `OPENAI_API_KEY` — OpenAI-routed `/v1/chat/completions`, `/v1/responses`, and OpenAI cross-provider requests
-- `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` — Anthropic-routed `/v1/messages` and Anthropic cross-provider requests
+- `ANTHROPIC_AUTH_TOKEN` — Anthropic-routed `/v1/messages` and Anthropic cross-provider requests
 - `RELAY_API_KEY` — optional but recommended; protects relay routes and `/v1/debug/translate`
 
 ### Build, test, deploy
@@ -146,7 +141,7 @@ curl https://<worker>.workers.dev/v1/messages \
   -d '{"providerHint":"openai","model":"glm-5.2","max_tokens":256,"messages":[{"role":"user","content":"Reply with exactly: omni relay ok"}]}'
 ```
 
-Use staging first when changing bindings, migrations, or upstream base URLs; promote to production only after compute verification succeeds.
+Use a preview deployment first when changing bindings, migrations, or upstream base URLs; promote to production only after compute verification succeeds.
 
 ```bash
 npx wrangler versions list

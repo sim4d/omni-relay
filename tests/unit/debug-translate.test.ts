@@ -22,7 +22,7 @@ describe('POST /v1/debug/translate', () => {
           },
         }),
       }),
-      { ENVIRONMENT: 'development', ENABLE_DEBUG_ROUTES: 'true', RELAY_API_KEY: 'relay-secret' },
+      { ENABLE_DEBUG_ROUTES: 'true', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -49,7 +49,7 @@ describe('POST /v1/debug/translate', () => {
           },
         }),
       }),
-      { ENVIRONMENT: 'development', ENABLE_DEBUG_ROUTES: 'true', RELAY_API_KEY: 'relay-secret' },
+      { ENABLE_DEBUG_ROUTES: 'true', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -72,14 +72,14 @@ describe('POST /v1/debug/translate', () => {
           },
         }),
       }),
-      { ENVIRONMENT: 'test', RELAY_API_KEY: 'relay-secret' },
+      { ENABLE_DEBUG_ROUTES: 'true', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
     expect(response.status).toBe(401)
   })
 
-  it('is disabled by default in production', async () => {
+  it('is disabled by default', async () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/debug/translate', {
         method: 'POST',
@@ -92,7 +92,7 @@ describe('POST /v1/debug/translate', () => {
           },
         }),
       }),
-      { ENVIRONMENT: 'production' },
+      { RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 

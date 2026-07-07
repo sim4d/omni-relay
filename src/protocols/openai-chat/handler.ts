@@ -30,7 +30,7 @@ export async function handleOpenAIChatCompletions(request: Request, env: AppEnv,
   const provider = selectProvider(normalized)
   const config = getConfig(env)
   assertMilestoneOneFeatureSupport(normalized, provider, 'chat')
-  log(env, 'info', 'relay_request_resolved', {
+  log('info', 'relay_request_resolved', {
     requestId: requestContext.requestId,
     routeProtocol: 'chat',
     provider,
@@ -50,7 +50,7 @@ export async function handleOpenAIChatCompletions(request: Request, env: AppEnv,
               throw new ValidationError(`Unsupported provider selected for OpenAI Chat route: ${provider}`)
             })()
     const upstreamLatencyMs = Date.now() - upstreamStartedAt
-    log(env, 'info', 'upstream_invocation_ready', {
+    log('info', 'upstream_invocation_ready', {
       requestId: requestContext.requestId,
       routeProtocol: 'chat',
       provider,
@@ -83,7 +83,7 @@ export async function handleOpenAIChatCompletions(request: Request, env: AppEnv,
             throw new ValidationError(`Unsupported provider selected for OpenAI Chat route: ${provider}`)
           })()
   const upstreamLatencyMs = Date.now() - upstreamStartedAt
-  log(env, 'info', 'upstream_invocation_ready', {
+  log('info', 'upstream_invocation_ready', {
     requestId: requestContext.requestId,
     routeProtocol: 'chat',
     provider,

@@ -2,7 +2,6 @@ import worker from '../../src/index'
 
 describe('POST /v1/responses', () => {
   const env = {
-    ENVIRONMENT: 'test',
     OPENAI_API_KEY: 'upstream-secret',
     OPENAI_BASE_URL: 'https://openai.example/v1',
   }
@@ -180,7 +179,6 @@ describe('POST /v1/responses', () => {
         }),
       }),
       {
-        ENVIRONMENT: 'test',
         OPENAI_API_KEY: 'upstream-secret',
       },
       ctx,

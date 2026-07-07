@@ -1,7 +1,6 @@
 import {
   AuthenticationError,
   MethodNotAllowedError,
-  RateLimitExceededError,
   renderError,
   ValidationError,
 } from '../../src/errors'
@@ -16,13 +15,11 @@ describe('error rendering', () => {
     expect((payload.error as Record<string, unknown>).code).toBe('validation_error')
   })
 
-  it('renders auth and rate limit errors with the correct HTTP status', async () => {
+  it('renders auth and method errors with the correct HTTP status', async () => {
     const authResponse = renderError(new AuthenticationError('nope'), 'req_2')
-    const rateResponse = renderError(new RateLimitExceededError('slow down'), 'req_3')
     const methodResponse = renderError(new MethodNotAllowedError('bad method'), 'req_4')
 
     expect(authResponse.status).toBe(401)
-    expect(rateResponse.status).toBe(429)
     expect(methodResponse.status).toBe(405)
   })
 

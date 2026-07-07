@@ -1,5 +1,3 @@
-import type { AppEnv } from './env'
-
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
 export type RequestContext = {
@@ -17,11 +15,10 @@ export function createRequestContext(request: Request): RequestContext {
   }
 }
 
-export function log(env: AppEnv, level: LogLevel, message: string, extra: Record<string, unknown> = {}): void {
+export function log(level: LogLevel, message: string, extra: Record<string, unknown> = {}): void {
   const payload = {
     level,
     message,
-    environment: env.ENVIRONMENT ?? 'development',
     ...extra,
   }
 

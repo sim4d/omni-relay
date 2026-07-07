@@ -31,7 +31,7 @@ describe('golden translation flows', () => {
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
         }),
       }),
-      { ENVIRONMENT: 'test', ANTHROPIC_AUTH_TOKEN: 'token', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
+      { ANTHROPIC_AUTH_TOKEN: 'token', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
       ctx,
     )
 
@@ -74,7 +74,7 @@ describe('golden translation flows', () => {
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }),
-      { ENVIRONMENT: 'test', OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
+      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
       ctx,
     )
 

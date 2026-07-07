@@ -25,7 +25,7 @@ describe('feature gating', () => {
           },
         }),
       }),
-      { ENVIRONMENT: 'test', ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
+      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
       ctx,
     )
 
@@ -64,7 +64,7 @@ describe('feature gating', () => {
           },
         }),
       }),
-      { ENVIRONMENT: 'test', OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
+      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
       ctx,
     )
 
@@ -114,7 +114,7 @@ describe('feature gating', () => {
           reasoning: { effort: 'high' },
         }),
       }),
-      { ENVIRONMENT: 'test', OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
+      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
       ctx,
     )
 
@@ -148,7 +148,7 @@ describe('feature gating', () => {
           ],
         }),
       }),
-      { ENVIRONMENT: 'test', ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
+      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
       ctx,
     )
 
@@ -176,7 +176,7 @@ describe('feature gating', () => {
           ],
         }),
       }),
-      { ENVIRONMENT: 'test', OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
+      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
       ctx,
     )
 
@@ -203,7 +203,7 @@ describe('feature gating', () => {
           ],
         }),
       }),
-      { ENVIRONMENT: 'test', ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
+      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
       ctx,
     )
 

@@ -30,7 +30,7 @@ export async function handleAnthropicMessages(request: Request, env: AppEnv, req
   const provider = selectProvider(normalized)
   const config = getConfig(env)
   assertMilestoneOneFeatureSupport(normalized, provider, 'messages')
-  log(env, 'info', 'relay_request_resolved', {
+  log('info', 'relay_request_resolved', {
     requestId: requestContext.requestId,
     routeProtocol: 'messages',
     provider,
@@ -50,7 +50,7 @@ export async function handleAnthropicMessages(request: Request, env: AppEnv, req
               throw new ValidationError(`Unsupported provider selected for Anthropic Messages route: ${provider}`)
             })()
     const upstreamLatencyMs = Date.now() - upstreamStartedAt
-    log(env, 'info', 'upstream_invocation_ready', {
+    log('info', 'upstream_invocation_ready', {
       requestId: requestContext.requestId,
       routeProtocol: 'messages',
       provider,
@@ -84,7 +84,7 @@ export async function handleAnthropicMessages(request: Request, env: AppEnv, req
             throw new ValidationError(`Unsupported provider selected for Anthropic Messages route: ${provider}`)
           })()
   const upstreamLatencyMs = Date.now() - upstreamStartedAt
-  log(env, 'info', 'upstream_invocation_ready', {
+  log('info', 'upstream_invocation_ready', {
     requestId: requestContext.requestId,
     routeProtocol: 'messages',
     provider,

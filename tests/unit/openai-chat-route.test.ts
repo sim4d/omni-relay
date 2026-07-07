@@ -2,7 +2,6 @@ import worker from '../../src/index'
 
 describe('POST /v1/chat/completions', () => {
   const env = {
-    ENVIRONMENT: 'test',
     OPENAI_API_KEY: 'upstream-secret',
     OPENAI_BASE_URL: 'https://openai.example/v1',
   }
@@ -157,7 +156,6 @@ describe('POST /v1/chat/completions', () => {
         }),
       }),
       {
-        ENVIRONMENT: 'test',
         ANTHROPIC_API_KEY: 'anthropic-secret',
         ANTHROPIC_BASE_URL: 'https://anthropic.example/v1',
       },

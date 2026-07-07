@@ -33,7 +33,6 @@ describe('cross-provider non-streaming routing', () => {
         }),
       }),
       {
-        ENVIRONMENT: 'test',
         ANTHROPIC_API_KEY: 'anthropic-secret',
         ANTHROPIC_BASE_URL: 'https://anthropic.example/v1',
       },
@@ -82,7 +81,6 @@ describe('cross-provider non-streaming routing', () => {
         }),
       }),
       {
-        ENVIRONMENT: 'test',
         OPENAI_API_KEY: 'openai-secret',
         OPENAI_BASE_URL: 'https://openai.example/v1',
       },
@@ -124,7 +122,6 @@ describe('cross-provider non-streaming routing', () => {
         }),
       }),
       {
-        ENVIRONMENT: 'test',
         ANTHROPIC_API_KEY: 'anthropic-secret',
         ANTHROPIC_BASE_URL: 'https://anthropic.example/v1',
       },
