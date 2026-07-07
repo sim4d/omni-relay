@@ -21,11 +21,11 @@ Live verification targets:
 
 Relay auth is client-compatible: `Authorization: Bearer <relay-key>` for OpenAI clients, `x-api-key: <relay-key>` for Anthropic clients.
 
-## Backend compatibility
+### Backend compatibility
 
 Backend selection is a configuration and routing concern, not a client lock-in. Known-compatible base URLs:
 
-- Anthropic-compatible: `https://open.bigmodel.cn/api/anthropic/v1`
+- Anthropic-compatible: `https://open.bigmodel.cn/api/anthropic`
 - OpenAI-compatible: `https://open.bigmodel.cn/api/coding/paas/v4`
 
 For cross-provider calls, set `providerHint` in the request body when model-prefix auto-routing is not enough.
