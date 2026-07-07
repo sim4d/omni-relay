@@ -11,5 +11,13 @@
     "OPENAI_BASE_URL": "https://cpa.sim4ai.ccwu.cc/v1",
     "OPENAI_WIRE_API": "chat_completions",
     "ANTHROPIC_BASE_URL": "https://cpa.sim4ai.ccwu.cc"
-  }
+  },
+  "migrations": [
+    {
+      "tag": "v2",
+      "deleted_classes": [
+        "RelayRateLimiter"
+      ]
+    }
+  ]
 }
