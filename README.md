@@ -21,10 +21,6 @@ Live verification targets:
 
 Relay auth is client-compatible: `Authorization: Bearer <relay-key>` for OpenAI clients, `x-api-key: <relay-key>` for Anthropic clients.
 
-**MVP scope:** OpenAI Chat Completions, Responses, and Anthropic Messages ingress; OpenAI and Anthropic upstream support; custom function tools as the only guaranteed cross-provider tool abstraction.
-
-Deferred until after MVP: Gemini, Workers AI, OpenRouter, provider-native cross-provider tools, reasoning/thinking normalization, and failover/cost-aware routing.
-
 ## Backend compatibility
 
 Backend selection is a configuration and routing concern, not a client lock-in. Known-compatible base URLs:
