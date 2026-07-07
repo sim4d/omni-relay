@@ -24,14 +24,17 @@ describe('golden translation flows', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/responses', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           providerHint: 'anthropic',
           model: 'glm-4.7',
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
         }),
       }),
-      { ANTHROPIC_AUTH_TOKEN: 'token', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
+      { ANTHROPIC_AUTH_TOKEN: 'token', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -66,7 +69,10 @@ describe('golden translation flows', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/messages', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': 'relay-secret',
+        },
         body: JSON.stringify({
           providerHint: 'openai',
           model: 'glm-5.2',
@@ -74,7 +80,7 @@ describe('golden translation flows', () => {
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }),
-      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
+      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1', OPENAI_WIRE_API: 'responses', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 

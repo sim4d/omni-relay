@@ -34,7 +34,10 @@ describe('custom tool support', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/chat/completions', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           model: 'gpt-5-mini',
           messages: [{ role: 'user', content: 'Check weather' }],
@@ -49,7 +52,7 @@ describe('custom tool support', () => {
           ],
         }),
       }),
-      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
+      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1', OPENAI_WIRE_API: 'responses', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -91,7 +94,10 @@ describe('custom tool support', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/messages', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': 'relay-secret',
+        },
         body: JSON.stringify({
           model: 'gpt-5.4-nano',
           max_tokens: 128,
@@ -99,7 +105,7 @@ describe('custom tool support', () => {
           tools: [{ name: 'lookup_weather', input_schema: { type: 'object', properties: { city: { type: 'string' } } } }],
         }),
       }),
-      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
+      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1', OPENAI_WIRE_API: 'responses', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -139,7 +145,10 @@ describe('custom tool support', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/chat/completions', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-0',
           messages: [{ role: 'user', content: 'Check weather' }],
@@ -154,7 +163,7 @@ describe('custom tool support', () => {
           ],
         }),
       }),
-      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
+      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 

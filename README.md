@@ -86,8 +86,8 @@ In the dashboard these are configured under **Settings** → **Variables and Sec
 | `ANTHROPIC_BASE_URL` | **Required** | Plaintext | Base URL of the Anthropic-compatible upstream. No built-in fallback. |
 | `OPENAI_API_KEY` | **Required if `OPENAI_BASE_URL` is set** | Secret | Bearer key sent to the OpenAI upstream for OpenAI-routed requests. |
 | `ANTHROPIC_AUTH_TOKEN` | **Required if `ANTHROPIC_BASE_URL` is set** | Secret | Anthropic `Authorization: Bearer` token for the Anthropic upstream. |
-| `RELAY_API_KEY` | Optional | Secret | Shared key protecting relay routes and `/v1/debug/translate`. Recommended. |
-| `OPENAI_WIRE_API` | Optional | Plaintext | OpenAI wire format: `responses` (default) or `chat_completions`. |
+| `RELAY_API_KEY` | **Required** | Secret | Shared key protecting relay routes and `/v1/debug/translate`. |
+| `OPENAI_WIRE_API` | Optional | Plaintext | OpenAI wire format: `chat_completions` (default) or `responses`. |
 | `ENABLE_DEBUG_ROUTES` | Optional | Plaintext | `true`/`false`. Disabled unless explicitly set to `true`. |
 
 ## Development
@@ -104,7 +104,7 @@ npx wrangler secret put RELAY_API_KEY
 
 - `OPENAI_API_KEY` — OpenAI-routed `/v1/chat/completions`, `/v1/responses`, and OpenAI cross-provider requests
 - `ANTHROPIC_AUTH_TOKEN` — Anthropic-routed `/v1/messages` and Anthropic cross-provider requests
-- `RELAY_API_KEY` — optional but recommended; protects relay routes and `/v1/debug/translate`
+- `RELAY_API_KEY` — required; protects relay routes and `/v1/debug/translate`. All requests return 401 if the key is unset or the credential does not match.
 
 ### Build, test, deploy
 

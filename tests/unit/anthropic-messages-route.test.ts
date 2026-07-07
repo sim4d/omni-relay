@@ -4,6 +4,7 @@ describe('POST /v1/messages', () => {
   const env = {
     ANTHROPIC_API_KEY: 'anthropic-secret',
     ANTHROPIC_BASE_URL: 'https://anthropic.example/v1',
+    RELAY_API_KEY: 'relay-secret',
   }
 
   const ctx = {
@@ -31,7 +32,11 @@ describe('POST /v1/messages', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/messages', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': 'relay-secret',
+          'anthropic-version': '2023-06-01',
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-0',
           max_tokens: 256,
@@ -94,5 +99,76 @@ describe('POST /v1/messages', () => {
 
     expect(response.status).toBe(200)
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns 401 when RELAY_API_KEY is set but the request carries no credential', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-0',
+          max_tokens: 256,
+          messages: [{ role: 'user', content: 'Hello' }],
+        }),
+      }),
+      env,
+      ctx,
+    )
+
+    expect(response.status).toBe(401)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('returns 401 when RELAY_API_KEY is unset on this route', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': 'relay-secret',
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-0',
+          max_tokens: 256,
+          messages: [{ role: 'user', content: 'Hello' }],
+        }),
+      }),
+      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
+      ctx,
+    )
+
+    expect(response.status).toBe(401)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('returns 401 when the credential does not match RELAY_API_KEY on this route', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': 'wrong-key',
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-0',
+          max_tokens: 256,
+          messages: [{ role: 'user', content: 'Hello' }],
+        }),
+      }),
+      env,
+      ctx,
+    )
+
+    expect(response.status).toBe(401)
+    expect(fetch).not.toHaveBeenCalled()
   })
 })

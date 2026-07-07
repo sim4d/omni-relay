@@ -40,10 +40,6 @@ export function parseRelayCredential(request: Request): RelayCredential | null {
   return null
 }
 
-export function isAuthenticationConfigured(env: AppEnv): boolean {
-  return Boolean(env.RELAY_API_KEY)
-}
-
 function constantTimeEquals(a: string, b: string): boolean {
   const encoder = new TextEncoder()
   const aBytes = encoder.encode(a)
@@ -60,13 +56,10 @@ function constantTimeEquals(a: string, b: string): boolean {
 }
 
 export function validateRelayAuthorization(env: AppEnv, token?: string): boolean {
-  if (!isAuthenticationConfigured(env)) {
-    return true
-  }
-
-  if (!token || !env.RELAY_API_KEY) {
+  const configuredKey = env.RELAY_API_KEY?.trim()
+  if (!configuredKey || !token) {
     return false
   }
 
-  return constantTimeEquals(token, env.RELAY_API_KEY)
+  return constantTimeEquals(token, configuredKey)
 }

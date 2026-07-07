@@ -26,7 +26,10 @@ describe('cross-provider non-streaming routing', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/chat/completions', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-0',
           messages: [{ role: 'user', content: 'Hello' }],
@@ -35,6 +38,7 @@ describe('cross-provider non-streaming routing', () => {
       {
         ANTHROPIC_API_KEY: 'anthropic-secret',
         ANTHROPIC_BASE_URL: 'https://anthropic.example/v1',
+        RELAY_API_KEY: 'relay-secret',
       },
       ctx,
     )
@@ -73,7 +77,10 @@ describe('cross-provider non-streaming routing', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/messages', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': 'relay-secret',
+        },
         body: JSON.stringify({
           model: 'gpt-5.4-nano',
           max_tokens: 128,
@@ -83,6 +90,8 @@ describe('cross-provider non-streaming routing', () => {
       {
         OPENAI_API_KEY: 'openai-secret',
         OPENAI_BASE_URL: 'https://openai.example/v1',
+        OPENAI_WIRE_API: 'responses',
+        RELAY_API_KEY: 'relay-secret',
       },
       ctx,
     )
@@ -115,7 +124,10 @@ describe('cross-provider non-streaming routing', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/responses', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-0',
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
@@ -124,6 +136,7 @@ describe('cross-provider non-streaming routing', () => {
       {
         ANTHROPIC_API_KEY: 'anthropic-secret',
         ANTHROPIC_BASE_URL: 'https://anthropic.example/v1',
+        RELAY_API_KEY: 'relay-secret',
       },
       ctx,
     )

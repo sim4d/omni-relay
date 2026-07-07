@@ -28,14 +28,17 @@ describe('streaming route handlers', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/responses', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           model: 'gpt-5.4-nano',
           stream: true,
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
         }),
       }),
-      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
+      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1', OPENAI_WIRE_API: 'responses', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -65,7 +68,10 @@ describe('streaming route handlers', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/messages', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': 'relay-secret',
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-0',
           max_tokens: 64,
@@ -73,7 +79,7 @@ describe('streaming route handlers', () => {
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }),
-      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
+      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -103,14 +109,17 @@ describe('streaming route handlers', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/chat/completions', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-0',
           stream: true,
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }),
-      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
+      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 

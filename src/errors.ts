@@ -1,7 +1,6 @@
 export type RelayErrorCode =
   | 'validation_error'
   | 'authentication_error'
-  | 'authorization_error'
   | 'unsupported_feature'
   | 'provider_selection_error'
   | 'upstream_api_error'
@@ -33,12 +32,6 @@ export class ValidationError extends RelayError {
 export class AuthenticationError extends RelayError {
   constructor(message = 'Authentication required', details?: unknown) {
     super(401, 'authentication_error', message, details)
-  }
-}
-
-export class AuthorizationError extends RelayError {
-  constructor(message = 'Access denied', details?: unknown) {
-    super(403, 'authorization_error', message, details)
   }
 }
 

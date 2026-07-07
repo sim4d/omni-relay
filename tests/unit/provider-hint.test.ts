@@ -25,7 +25,10 @@ describe('providerHint override', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/messages', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': 'relay-secret',
+        },
         body: JSON.stringify({
           providerHint: 'anthropic',
           model: 'glm-4.7',
@@ -33,7 +36,7 @@ describe('providerHint override', () => {
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }),
-      { ANTHROPIC_AUTH_TOKEN: 'token', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
+      { ANTHROPIC_AUTH_TOKEN: 'token', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 

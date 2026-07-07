@@ -4,6 +4,7 @@ describe('POST /v1/responses', () => {
   const env = {
     OPENAI_API_KEY: 'upstream-secret',
     OPENAI_BASE_URL: 'https://openai.example/v1',
+    RELAY_API_KEY: 'relay-secret',
   }
 
   const ctx = {
@@ -41,13 +42,16 @@ describe('POST /v1/responses', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/responses', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           model: 'gpt-5.4-nano',
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
         }),
       }),
-      env,
+      { ...env, OPENAI_WIRE_API: 'responses' },
       ctx,
     )
 
@@ -90,14 +94,17 @@ describe('POST /v1/responses', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/responses', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           model: 'glm-5.2',
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
           tools: [{ type: 'custom', name: 'codex', description: 'Run commands' }],
         }),
       }),
-      env,
+      { ...env, OPENAI_WIRE_API: 'responses' },
       ctx,
     )
 
@@ -141,7 +148,10 @@ describe('POST /v1/responses', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/responses', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           model: 'glm-5.2',
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
@@ -172,7 +182,10 @@ describe('POST /v1/responses', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/responses', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           model: 'gpt-5.4-nano',
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
@@ -180,6 +193,7 @@ describe('POST /v1/responses', () => {
       }),
       {
         OPENAI_API_KEY: 'upstream-secret',
+        RELAY_API_KEY: 'relay-secret',
       },
       ctx,
     )
@@ -191,6 +205,72 @@ describe('POST /v1/responses', () => {
         message: expect.stringContaining('OPENAI_BASE_URL'),
       },
     })
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('returns 401 when RELAY_API_KEY is set but the request carries no credential', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/responses', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-5.4-nano',
+          input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
+        }),
+      }),
+      env,
+      ctx,
+    )
+
+    expect(response.status).toBe(401)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('returns 401 when RELAY_API_KEY is unset on this route', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
+        body: JSON.stringify({
+          model: 'gpt-5.4-nano',
+          input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
+        }),
+      }),
+      { OPENAI_API_KEY: 'upstream-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
+      ctx,
+    )
+
+    expect(response.status).toBe(401)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('returns 401 when the credential does not match RELAY_API_KEY on this route', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer wrong-key',
+        },
+        body: JSON.stringify({
+          model: 'gpt-5.4-nano',
+          input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
+        }),
+      }),
+      env,
+      ctx,
+    )
+
+    expect(response.status).toBe(401)
     expect(fetch).not.toHaveBeenCalled()
   })
 })

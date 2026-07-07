@@ -12,7 +12,10 @@ describe('feature gating', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/responses', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-0',
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
@@ -25,7 +28,7 @@ describe('feature gating', () => {
           },
         }),
       }),
-      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
+      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -51,7 +54,10 @@ describe('feature gating', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/responses', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           model: 'gpt-5.4-nano',
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
@@ -64,7 +70,7 @@ describe('feature gating', () => {
           },
         }),
       }),
-      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
+      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1', OPENAI_WIRE_API: 'responses', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -101,7 +107,10 @@ describe('feature gating', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/responses', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           model: 'glm-5.2',
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
@@ -114,7 +123,7 @@ describe('feature gating', () => {
           reasoning: { effort: 'high' },
         }),
       }),
-      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
+      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1', OPENAI_WIRE_API: 'responses', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -136,7 +145,10 @@ describe('feature gating', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/responses', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           providerHint: 'anthropic',
           model: 'glm-4.7',
@@ -148,7 +160,7 @@ describe('feature gating', () => {
           ],
         }),
       }),
-      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
+      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -161,7 +173,10 @@ describe('feature gating', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/messages', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': 'relay-secret',
+        },
         body: JSON.stringify({
           providerHint: 'openai',
           model: 'glm-5.2',
@@ -176,7 +191,7 @@ describe('feature gating', () => {
           ],
         }),
       }),
-      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1' },
+      { OPENAI_API_KEY: 'openai-secret', OPENAI_BASE_URL: 'https://openai.example/v1', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -189,7 +204,10 @@ describe('feature gating', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/responses', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           providerHint: 'anthropic',
           model: 'glm-4.7',
@@ -203,7 +221,7 @@ describe('feature gating', () => {
           ],
         }),
       }),
-      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1' },
+      { ANTHROPIC_API_KEY: 'anthropic-secret', ANTHROPIC_BASE_URL: 'https://anthropic.example/v1', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 

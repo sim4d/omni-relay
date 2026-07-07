@@ -4,6 +4,7 @@ describe('POST /v1/chat/completions', () => {
   const env = {
     OPENAI_API_KEY: 'upstream-secret',
     OPENAI_BASE_URL: 'https://openai.example/v1',
+    RELAY_API_KEY: 'relay-secret',
   }
 
   const ctx = {
@@ -37,13 +38,16 @@ describe('POST /v1/chat/completions', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/chat/completions', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           model: 'gpt-5-mini',
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }),
-      env,
+      { ...env, OPENAI_WIRE_API: 'responses' },
       ctx,
     )
 
@@ -58,6 +62,48 @@ describe('POST /v1/chat/completions', () => {
     const payload = await response.json() as Record<string, unknown>
     expect(payload.object).toBe('chat.completion')
     expect((payload.choices as Array<Record<string, unknown>>)[0]?.finish_reason).toBe('stop')
+  })
+
+  it('defaults to the chat-completions upstream when OPENAI_WIRE_API is unset', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          id: 'chatcmpl_default_1',
+          object: 'chat.completion',
+          model: 'gpt-5-mini',
+          choices: [
+            {
+              index: 0,
+              finish_reason: 'stop',
+              message: { role: 'assistant', content: 'default ok' },
+            },
+          ],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
+        body: JSON.stringify({
+          model: 'gpt-5-mini',
+          messages: [{ role: 'user', content: 'Hello' }],
+        }),
+      }),
+      env,
+      ctx,
+    )
+
+    expect(response.status).toBe(200)
+    const [url] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
+    expect(url).toBe('https://openai.example/v1/chat/completions')
   })
 
   it('returns 401 when relay auth is configured and missing', async () => {
@@ -80,6 +126,7 @@ describe('POST /v1/chat/completions', () => {
     )
 
     expect(response.status).toBe(401)
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   it('returns an SSE stream for OpenAI-routed streaming requests', async () => {
@@ -106,14 +153,17 @@ describe('POST /v1/chat/completions', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/chat/completions', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           model: 'gpt-5-mini',
           stream: true,
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }),
-      env,
+      { ...env, OPENAI_WIRE_API: 'responses' },
       ctx,
     )
 
@@ -148,7 +198,10 @@ describe('POST /v1/chat/completions', () => {
     const response = await worker.fetch(
       new Request('https://example.com/v1/chat/completions', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer relay-secret',
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-0',
           stream: true,
@@ -158,6 +211,7 @@ describe('POST /v1/chat/completions', () => {
       {
         ANTHROPIC_API_KEY: 'anthropic-secret',
         ANTHROPIC_BASE_URL: 'https://anthropic.example/v1',
+        RELAY_API_KEY: 'relay-secret',
       },
       ctx,
     )

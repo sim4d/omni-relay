@@ -8,6 +8,6 @@ export type AppConfig = {
 export function getConfig(env: AppEnv): AppConfig {
   return {
     debugRoutesEnabled: env.ENABLE_DEBUG_ROUTES === 'true',
-    openAIWireApi: env.OPENAI_WIRE_API === 'chat_completions' ? 'chat_completions' : 'responses',
+    openAIWireApi: env.OPENAI_WIRE_API === 'responses' ? 'responses' : 'chat_completions',
   }
 }
