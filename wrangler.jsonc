@@ -9,9 +9,9 @@
   },
   "vars": {
     "ENVIRONMENT": "production",
-    "OPENAI_BASE_URL": "https://open.bigmodel.cn/api/coding/paas/v4",
+    "OPENAI_BASE_URL": "https://cpa.sim4ai.ccwu.cc/v1",
     "OPENAI_WIRE_API": "chat_completions",
-    "ANTHROPIC_BASE_URL": "https://open.bigmodel.cn/api/anthropic/v1",
+    "ANTHROPIC_BASE_URL": "https://cpa.sim4ai.ccwu.cc",
     "ENABLE_DEBUG_ROUTES": "false",
     "RATE_LIMIT_MAX": "60",
     "RATE_LIMIT_PERIOD_SECONDS": "60"
@@ -27,7 +27,9 @@
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["RelayRateLimiter"]
+      "new_sqlite_classes": [
+        "RelayRateLimiter"
+      ]
     }
   ],
   "env": {
@@ -43,9 +45,9 @@
       },
       "vars": {
         "ENVIRONMENT": "staging",
-        "OPENAI_BASE_URL": "https://open.bigmodel.cn/api/coding/paas/v4",
+        "OPENAI_BASE_URL": "https://cpa.sim4ai.ccwu.cc/v1",
         "OPENAI_WIRE_API": "chat_completions",
-        "ANTHROPIC_BASE_URL": "https://open.bigmodel.cn/api/anthropic/v1",
+        "ANTHROPIC_BASE_URL": "https://cpa.sim4ai.ccwu.cc",
         "ENABLE_DEBUG_ROUTES": "true",
         "RATE_LIMIT_MAX": "2",
         "RATE_LIMIT_PERIOD_SECONDS": "10"
