@@ -47,6 +47,7 @@ npx wrangler secret put RELAY_API_KEY
 - `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` — Anthropic-routed `/v1/messages` and Anthropic cross-provider requests
 - `RELAY_API_KEY` — optional but recommended; protects relay routes and `/v1/debug/translate`
 
+## Development
 ### Build, test, deploy
 
 ```bash
