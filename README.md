@@ -89,15 +89,3 @@ npx wrangler versions list
 npx wrangler rollback   # if a deploy needs reversing
 ```
 
-## Development
-
-```bash
-npm install
-npm run cf-typegen
-npm run dev
-```
-
-## Security notes
-
-- `/v1/debug/translate` is **disabled by default in production**. Enable with `ENABLE_DEBUG_ROUTES=true` (also requires `RELAY_API_KEY`).
-- Relay routes enforce rate limiting through a Durable Object binding when `RATE_LIMIT_MAX`, `RATE_LIMIT_PERIOD_SECONDS`, and `RELAY_RATE_LIMITER_DO` are configured. Staging defaults (`2 requests / 10 seconds`) are stricter than production (`60 requests / 60 seconds`) for proof-oriented testing.
