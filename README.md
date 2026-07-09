@@ -79,6 +79,28 @@ Run `omni-relay` locally with a single OpenAI-compatible upstream target.
    > Codex reads `env_key` from the OS environment, not from `.dev.vars`.
    > The value must match what you put in `.dev.vars` in step 2.
 
+7. **Run in background (optional)**
+
+   Keep the relay running after you close the terminal with [pm2](https://pm2.keymetrics.io/):
+
+   ```bash
+   npm install -g pm2
+   pm2 start npm --name omni-relay -- run dev:node
+   ```
+
+   Useful pm2 commands:
+
+   ```bash
+   pm2 logs omni-relay     # tail logs
+   pm2 status              # show process status
+   pm2 restart omni-relay  # restart after code changes
+   ```
+
+   > Stop any foreground `npm run dev:node` first so port 8787 is free.
+   > `dev:node` bundles once at startup with no auto-reload, so run
+   > `pm2 restart omni-relay` after code changes. Stop it with
+   > `pm2 delete omni-relay`.
+
 ## Deploy Cloudflare Workers
 
 Deploy `omni-relay` to Cloudflare Workers compute straight from the Cloudflare dashboard.
