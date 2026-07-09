@@ -42,12 +42,13 @@ Run `omni-relay` locally with a single OpenAI-compatible upstream target.
 3. **Run the project on localhost**
 
    ```bash
-   npm run dev
+   npm run dev:node
    ```
 
+   > `npm run dev:node` runs the relay on plain Node.js — no wrangler/workerd
+   > required. Use `npm run dev` if you prefer the wrangler dev server.
    > Keep this terminal running. Open a **new terminal** for the remaining steps.
-   > The default port is `8787`; if it's already in use, check Wrangler's output
-   > for the actual `http://localhost:<port>`.
+   > The default port is `8787`.
 
 4. **Verify the local server**
 
