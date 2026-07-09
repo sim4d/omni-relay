@@ -1,6 +1,6 @@
 # omni-relay
 
-[![Deploy to Cloudflare Workers](https://img.shields.io/badge/Deploy-Cloudflare%20Workers-orange?logo=cloudflare)](https://workers.cloudflare.com/)
+[![Deploy to Cloudflare Workers](https://img.shields.io/badge/Deploy-Cloudflare%20Workers-8A2BE2?logo=cloudflare)](https://workers.cloudflare.com/)
 [![OpenAI Compatible](https://img.shields.io/badge/OpenAI-Compatible-green)](https://openai.com/)
 [![Anthropic Compatible](https://img.shields.io/badge/Anthropic-Compatible-red)](https://anthropic.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
