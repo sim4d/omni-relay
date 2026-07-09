@@ -9,7 +9,9 @@ A universal LLM API relay and protocol translator for OpenAI and Anthropic, buil
 
 ## Project goal
 
-Let **Codex CLI** and **Claude CLI** share one relay while either client can target either an **OpenAI-compatible** or **Anthropic-compatible** upstream, in both directions:
+Short term: Let **Codex CLI** connect to an **OpenAI-compatible** upstream backend, and translate /v1/responses calls to /v1/chat/completions.
+
+Next step, let **Codex CLI** and **Claude CLI** share one relay while either client can target either an **OpenAI-compatible** or **Anthropic-compatible** upstream, in both directions:
 
 - OpenAI-style clients/routes onto Anthropic upstreams
 - Anthropic-style clients/routes onto OpenAI upstreams
