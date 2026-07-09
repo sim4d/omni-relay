@@ -9,9 +9,7 @@ A universal LLM API relay and protocol translator for OpenAI and Anthropic, buil
 
 ## Project goal
 
-Short term: Let **Codex CLI** connect to an **OpenAI-compatible** upstream backend, and translate /v1/responses calls to /v1/chat/completions.
-
-Next step, let **Codex CLI** and **Claude CLI** share one relay while either client can target either an **OpenAI-compatible** or **Anthropic-compatible** upstream, in both directions:
+Let **Codex CLI** connect to an **OpenAI-compatible** upstream backend, and translate /v1/responses calls to /v1/chat/completions. Let **Codex CLI** and **Claude CLI** share one relay while either client can target either an **OpenAI-compatible** or **Anthropic-compatible** upstream, in both directions:
 
 - OpenAI-style clients/routes onto Anthropic upstreams
 - Anthropic-style clients/routes onto OpenAI upstreams
@@ -146,9 +144,11 @@ The relay supports **multiple upstream targets per compatible category**. Each t
 
 | Variable | Required | Type | Description |
 | --- | :---: | --- | --- |
-| `ANTHROPIC_BASE_<N>` | **Required** | Plaintext | e.g., `https://open.bigmodel.cn/api/anthropic` |
+| `ANTHROPIC_BASE_<N>` | **Required** | Plaintext | e.g., `https://open.bigmodel.cn/api/anthropic/v1` |
 | `ANTHROPIC_AUTH_<N>` | **Required** | Secret | `sk-<key>` |
 | `ANTHROPIC_MODEL_<N>` | **Required** | Plaintext | Comma-separated model globs, e.g. `glm-*`. |
+
+**NOTE**: please make sure to add '/v1' to the baseurl
 
 **Relay-wide variables**:
 
