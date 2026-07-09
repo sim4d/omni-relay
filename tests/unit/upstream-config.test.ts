@@ -6,7 +6,7 @@ import type { AppEnv } from '../../src/env'
 function singleOpenai(env: Partial<AppEnv> = {}): AppEnv {
   return {
     OPENAI_BASE_1: 'https://openai.example/v1',
-    OPENAI_API_1: 'upstream-secret',
+    OPENAI_KEY_1: 'upstream-secret',
     OPENAI_MODEL_1: 'gpt-*,glm-4*',
     ...env,
   }
@@ -44,7 +44,7 @@ describe('parseUpstreamTargets', () => {
   it('supports multiple OpenAI slots with independent wire formats', () => {
     const env = singleOpenai({
       OPENAI_BASE_2: 'https://responses.example/v1',
-      OPENAI_API_2: 'other-secret',
+      OPENAI_KEY_2: 'other-secret',
       OPENAI_WIRE_2: 'responses',
       OPENAI_MODEL_2: 'responses-only-*',
     })
@@ -81,13 +81,13 @@ describe('parseUpstreamTargets', () => {
       OPENAI_MODEL_1: 'gpt-*',
     }
     expect(() => parseUpstreamTargets(env)).toThrow(ConfigurationError)
-    expect(() => parseUpstreamTargets(env)).toThrow(/OPENAI_API_1/)
+    expect(() => parseUpstreamTargets(env)).toThrow(/OPENAI_KEY_1/)
   })
 
   it('rejects an empty model glob list', () => {
     const env: AppEnv = {
       OPENAI_BASE_1: 'https://openai.example/v1',
-      OPENAI_API_1: 'secret',
+      OPENAI_KEY_1: 'secret',
       OPENAI_MODEL_1: ' , ',
     }
     expect(() => parseUpstreamTargets(env)).toThrow(/at least one model glob/)
@@ -112,10 +112,10 @@ describe('parseUpstreamTargets', () => {
   it('orders slots numerically regardless of env iteration order', () => {
     const env: AppEnv = {
       OPENAI_BASE_2: 'https://b.example/v1',
-      OPENAI_API_2: 's2',
+      OPENAI_KEY_2: 's2',
       OPENAI_MODEL_2: 'm2',
       OPENAI_BASE_1: 'https://a.example/v1',
-      OPENAI_API_1: 's1',
+      OPENAI_KEY_1: 's1',
       OPENAI_MODEL_1: 'm1',
     }
     const config = parseUpstreamTargets(env)
@@ -165,6 +165,6 @@ describe('resolveUpstreamTargets', () => {
     // A partially-declared slot surfaces the specific missing fields, not the
     // generic "no complete target" summary.
     expect(() => resolveUpstreamTargets({ OPENAI_BASE_1: 'https://x.example' })).toThrow(/missing required field/)
-    expect(() => resolveUpstreamTargets({ OPENAI_BASE_1: 'https://x.example' })).toThrow(/OPENAI_API_1/)
+    expect(() => resolveUpstreamTargets({ OPENAI_BASE_1: 'https://x.example' })).toThrow(/OPENAI_KEY_1/)
   })
 })

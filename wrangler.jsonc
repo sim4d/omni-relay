@@ -9,16 +9,12 @@
   },
   "vars": {
     // Per-target upstream config. Add more slots by incrementing the trailing
-    // number (OPENAI_BASE_2, ...). Each OpenAI target needs BASE, API (a secret
+    // number (OPENAI_BASE_2, ...). Each OpenAI target needs BASE, KEY (a secret
     // set via `wrangler secret put`), and MODEL; OPENAI_WIRE_<N> is optional
     // (defaults to chat_completions; set to 'responses' for a Responses target).
     // Anthropic targets need BASE, AUTH (a secret), and MODEL.
-    "OPENAI_BASE_1": "https://cpa.sim4ai.ccwu.cc/v1",
-    "OPENAI_MODEL_1": "glm-5.2",
-    "OPENAI_BASE_2": "https://openrouter.ai/api/v1",
-    "OPENAI_MODEL_2": "nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,tencent/hy3:free,poolside/laguna-m.1:free,nvidia/nemotron-3-nano-30b-a3b:free",
-    "ANTHROPIC_BASE_1": "https://cpa.sim4ai.ccwu.cc/v1",
-    "ANTHROPIC_MODEL_1": "MiniMax-M3"
+    "OPENAI_BASE_1": "https://openrouter.ai/api/v1",
+    "OPENAI_MODEL_1": "nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,tencent/hy3:free,poolside/laguna-m.1:free,nvidia/nemotron-3-nano-30b-a3b:free"
   },
   "migrations": [
     {

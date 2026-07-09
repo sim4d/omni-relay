@@ -64,14 +64,14 @@ In the dashboard these are configured under **Settings** → **Variables and Sec
 
 The relay supports **multiple upstream targets per compatible category**. Each target is a numbered slot (`<N>` = 1, 2, 3, …) carrying its own base URL, key, and the model globs it serves. 
 
-**Note:** At least one target (`OPENAI_BASE_1` + `OPENAI_API_1` + `OPENAI_MODEL_1`), or the Anthropic equivalent, is required.
+**Note:** At least one target (`OPENAI_BASE_1` + `OPENAI_KEY_1` + `OPENAI_MODEL_1`), or the Anthropic equivalent, is required.
 
 **OpenAI-compatible targets** (`<N>` = slot number):
 
 | Variable | Required | Type | Description |
 | --- | :---: | --- | --- |
 | `OPENAI_BASE_<N>` | **Required** | Plaintext | e.g., `https://open.bigmodel.cn/api/coding/paas/v4` |
-| `OPENAI_API_<N>` | **Required** | Secret | `sk-<key>` |
+| `OPENAI_KEY_<N>` | **Required** | Secret | `sk-<key>` |
 | `OPENAI_MODEL_<N>` | **Required** | Plaintext | Comma-separated model globs, e.g. `glm-*`. |
 | `OPENAI_WIRE_<N>` | Optional | Plaintext | Wire format: `chat_completions` (default) or `responses`. Set `responses` only when this upstream speaks the Responses API. |
 
@@ -108,13 +108,13 @@ cd omni-relay
 ### Set vars and secrets
 
 ```bash
-npx wrangler secret put OPENAI_API_1
+npx wrangler secret put OPENAI_KEY_1
 npx wrangler secret put ANTHROPIC_AUTH_1
 npx wrangler secret put RELAY_API_KEY
-# repeat per additional target: OPENAI_API_2, ANTHROPIC_AUTH_2, ...
+# repeat per additional target: OPENAI_KEY_2, ANTHROPIC_AUTH_2, ...
 ```
 
-- `OPENAI_API_<N>` — bearer key for the Nth OpenAI-compatible upstream
+- `OPENAI_KEY_<N>` — bearer key for the Nth OpenAI-compatible upstream
 - `ANTHROPIC_AUTH_<N>` — bearer token for the Nth Anthropic-compatible upstream
 - `RELAY_API_KEY` — required; protects relay routes and `/v1/debug/translate`. All requests return 401 if the key is unset or the credential does not match.
 

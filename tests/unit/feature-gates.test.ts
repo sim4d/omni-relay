@@ -70,7 +70,7 @@ describe('feature gating', () => {
           },
         }),
       }),
-      { OPENAI_BASE_1: 'https://openai.example/v1', OPENAI_API_1: 'openai-secret', OPENAI_WIRE_1: 'responses', OPENAI_MODEL_1: 'gpt-*', RELAY_API_KEY: 'relay-secret' },
+      { OPENAI_BASE_1: 'https://openai.example/v1', OPENAI_KEY_1: 'openai-secret', OPENAI_WIRE_1: 'responses', OPENAI_MODEL_1: 'gpt-*', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -123,7 +123,7 @@ describe('feature gating', () => {
           reasoning: { effort: 'high' },
         }),
       }),
-      { OPENAI_BASE_1: 'https://openai.example/v1', OPENAI_API_1: 'openai-secret', OPENAI_WIRE_1: 'responses', OPENAI_MODEL_1: 'glm-*', RELAY_API_KEY: 'relay-secret' },
+      { OPENAI_BASE_1: 'https://openai.example/v1', OPENAI_KEY_1: 'openai-secret', OPENAI_WIRE_1: 'responses', OPENAI_MODEL_1: 'glm-*', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 
@@ -191,7 +191,7 @@ describe('feature gating', () => {
           ],
         }),
       }),
-      { OPENAI_BASE_1: 'https://openai.example/v1', OPENAI_API_1: 'openai-secret', OPENAI_MODEL_1: 'glm-*', RELAY_API_KEY: 'relay-secret' },
+      { OPENAI_BASE_1: 'https://openai.example/v1', OPENAI_KEY_1: 'openai-secret', OPENAI_MODEL_1: 'glm-*', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 

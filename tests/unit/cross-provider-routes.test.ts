@@ -90,7 +90,7 @@ describe('cross-provider non-streaming routing', () => {
       }),
       {
         OPENAI_BASE_1: 'https://openai.example/v1',
-        OPENAI_API_1: 'openai-secret',
+        OPENAI_KEY_1: 'openai-secret',
         OPENAI_WIRE_1: 'responses',
         OPENAI_MODEL_1: 'gpt-*',
         RELAY_API_KEY: 'relay-secret',

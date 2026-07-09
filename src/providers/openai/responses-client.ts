@@ -7,7 +7,7 @@ import { mapOpenAIResponsesStreamToEvents } from './map-responses-stream'
 
 export async function invokeOpenAIResponses(request: NormalizedRequest, target: UpstreamTarget): Promise<NormalizedResult> {
   if (!target.apiKey) {
-    throw new AuthenticationError(`OPENAI_API_${target.slot} is not configured in the Worker environment`)
+    throw new AuthenticationError(`OPENAI_KEY_${target.slot} is not configured in the Worker environment`)
   }
 
   const upstream = await fetch(`${target.baseUrl}/responses`, {
@@ -33,7 +33,7 @@ export async function invokeOpenAIResponses(request: NormalizedRequest, target: 
 
 export async function invokeOpenAIResponsesStream(request: NormalizedRequest, target: UpstreamTarget): Promise<AsyncIterable<import('../../core/stream-events').NormalizedEvent>> {
   if (!target.apiKey) {
-    throw new AuthenticationError(`OPENAI_API_${target.slot} is not configured in the Worker environment`)
+    throw new AuthenticationError(`OPENAI_KEY_${target.slot} is not configured in the Worker environment`)
   }
 
   const upstream = await fetch(`${target.baseUrl}/responses`, {

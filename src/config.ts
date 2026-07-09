@@ -14,10 +14,10 @@ export function getConfig(env: AppEnv): AppConfig {
 
 // Matches `<KIND>_<FIELD>_<N>` where KIND is openai|anthropic, FIELD is one of
 // the known per-target fields, and N is a 1-based slot index.
-const TARGET_VAR_PATTERN = /^(OPENAI|ANTHROPIC)_(BASE|API|WIRE|MODEL|AUTH)_(\d+)$/
+const TARGET_VAR_PATTERN = /^(OPENAI|ANTHROPIC)_(BASE|KEY|WIRE|MODEL|AUTH)_(\d+)$/
 
 type TargetKindUpper = 'OPENAI' | 'ANTHROPIC'
-type TargetField = 'BASE' | 'API' | 'WIRE' | 'MODEL' | 'AUTH'
+type TargetField = 'BASE' | 'KEY' | 'WIRE' | 'MODEL' | 'AUTH'
 
 const KIND_FROM_UPPER: Record<TargetKindUpper, UpstreamKind> = {
   OPENAI: 'openai',
@@ -26,11 +26,11 @@ const KIND_FROM_UPPER: Record<TargetKindUpper, UpstreamKind> = {
 
 // Fields that, when any one is present for a slot, make the slot "declared" —
 // and then require the slot's mandatory fields to also be present.
-const DECLARED_FIELDS: TargetField[] = ['BASE', 'API', 'WIRE', 'MODEL', 'AUTH']
+const DECLARED_FIELDS: TargetField[] = ['BASE', 'KEY', 'WIRE', 'MODEL', 'AUTH']
 
 // Mandatory field per kind. WIRE is optional and only meaningful for openai.
 const MANDATORY_FIELDS: Record<UpstreamKind, TargetField[]> = {
-  openai: ['BASE', 'API', 'MODEL'],
+  openai: ['BASE', 'KEY', 'MODEL'],
   anthropic: ['BASE', 'AUTH', 'MODEL'],
 }
 
@@ -63,7 +63,7 @@ export function parseUpstreamTargets(env: AppEnv): UpstreamTargetsConfig {
     kind: UpstreamKind
     slot: number
     base?: string
-    api?: string
+    key?: string
     auth?: string
     wire?: string
     model?: string
@@ -91,7 +91,7 @@ export function parseUpstreamTargets(env: AppEnv): UpstreamTargetsConfig {
     }
 
     if (field === 'BASE') slot.base = value
-    else if (field === 'API') slot.api = value
+    else if (field === 'KEY') slot.key = value
     else if (field === 'AUTH') slot.auth = value
     else if (field === 'WIRE') slot.wire = value
     else if (field === 'MODEL') slot.model = value
@@ -104,7 +104,7 @@ export function parseUpstreamTargets(env: AppEnv): UpstreamTargetsConfig {
     const mandatory = MANDATORY_FIELDS[slot.kind]
     const missing = mandatory.filter((field) => {
       if (field === 'BASE') return !slot.base
-      if (field === 'API') return !slot.api
+      if (field === 'KEY') return !slot.key
       if (field === 'AUTH') return !slot.auth
       if (field === 'MODEL') return !slot.model
       return false
@@ -152,7 +152,7 @@ export function parseUpstreamTargets(env: AppEnv): UpstreamTargetsConfig {
     }
 
     if (slot.kind === 'openai') {
-      target.apiKey = slot.api
+      target.apiKey = slot.key
       target.wireApi = slot.wire === 'responses' ? 'responses' : 'chat_completions'
     } else {
       target.authToken = slot.auth
@@ -173,11 +173,11 @@ export function resolveUpstreamTargets(env: AppEnv): UpstreamTargetsConfig {
   if (config.openai.length === 0 && config.anthropic.length === 0) {
     if (hasUpstreamConfig(env)) {
       throw new ConfigurationError(
-        'No complete upstream target is configured. Each target needs BASE, its auth field (API or AUTH), and MODEL.',
+        'No complete upstream target is configured. Each target needs BASE, its auth field (KEY or AUTH), and MODEL.',
       )
     }
     throw new ConfigurationError(
-      'No upstream targets are configured. Add OPENAI_BASE_1 / OPENAI_API_1 / OPENAI_MODEL_1 (and/or ANTHROPIC_BASE_1 / ANTHROPIC_AUTH_1 / ANTHROPIC_MODEL_1) to your Worker environment.',
+      'No upstream targets are configured. Add OPENAI_BASE_1 / OPENAI_KEY_1 / OPENAI_MODEL_1 (and/or ANTHROPIC_BASE_1 / ANTHROPIC_AUTH_1 / ANTHROPIC_MODEL_1) to your Worker environment.',
     )
   }
   return config

@@ -10,7 +10,7 @@ Each request is routed to an upstream **target** by matching the request's `mode
 
 A target is a numbered slot (`<N>` = 1, 2, 3, …) of one provider kind:
 
-- **OpenAI-compatible**: `OPENAI_BASE_<N>` + `OPENAI_API_<N>` + `OPENAI_MODEL_<N>`, plus optional `OPENAI_WIRE_<N>`.
+- **OpenAI-compatible**: `OPENAI_BASE_<N>` + `OPENAI_KEY_<N>` + `OPENAI_MODEL_<N>`, plus optional `OPENAI_WIRE_<N>`.
 - **Anthropic-compatible**: `ANTHROPIC_BASE_<N>` + `ANTHROPIC_AUTH_<N>` + `ANTHROPIC_MODEL_<N>`.
 
 You may configure any number of each. Slot numbers are 1-based and need not be contiguous, but they are walked in ascending numeric order within each kind.
@@ -75,11 +75,11 @@ Example of disjoint slots serving the same provider:
 ```jsonc
 "vars": {
   "OPENAI_BASE_1": "https://cheap.example/v1",
-  "OPENAI_API_1": "<secret>",
+  "OPENAI_KEY_1": "<secret>",
   "OPENAI_MODEL_1": "gpt-4o-mini,glm-4*",
 
   "OPENAI_BASE_2": "https://premium.example/v1",
-  "OPENAI_API_2": "<secret>",
+  "OPENAI_KEY_2": "<secret>",
   "OPENAI_MODEL_2": "gpt-5,gpt-4o"
 }
 ```

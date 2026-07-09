@@ -3,7 +3,7 @@ import worker from '../../src/index'
 describe('POST /v1/responses', () => {
   const env = {
     OPENAI_BASE_1: 'https://openai.example/v1',
-    OPENAI_API_1: 'upstream-secret',
+    OPENAI_KEY_1: 'upstream-secret',
     OPENAI_MODEL_1: 'gpt-*,glm-*',
     RELAY_API_KEY: 'relay-secret',
   }
@@ -193,7 +193,7 @@ describe('POST /v1/responses', () => {
         }),
       }),
       {
-        OPENAI_API_1: 'upstream-secret',
+        OPENAI_KEY_1: 'upstream-secret',
         OPENAI_MODEL_1: 'gpt-*',
         RELAY_API_KEY: 'relay-secret',
       },
@@ -245,7 +245,7 @@ describe('POST /v1/responses', () => {
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
         }),
       }),
-      { OPENAI_BASE_1: 'https://openai.example/v1', OPENAI_API_1: 'upstream-secret', OPENAI_MODEL_1: 'gpt-*' },
+      { OPENAI_BASE_1: 'https://openai.example/v1', OPENAI_KEY_1: 'upstream-secret', OPENAI_MODEL_1: 'gpt-*' },
       ctx,
     )
 

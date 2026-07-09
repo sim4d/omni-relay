@@ -51,11 +51,11 @@ compute instead:
    ```
 2. Push the secrets the worker needs (secrets are per-worker, not shared):
    ```bash
-   for k in OPENAI_API_1 ANTHROPIC_AUTH_1 RELAY_API_KEY; do
+   for k in OPENAI_KEY_1 ANTHROPIC_AUTH_1 RELAY_API_KEY; do
      printf '%s' "$VALUE" | npx wrangler secret put "$k" --name relayx-tryrun
    done
    ```
-   Add `OPENAI_API_2`, `ANTHROPIC_AUTH_2`, etc. for each additional target slot you configure.
+   Add `OPENAI_KEY_2`, `ANTHROPIC_AUTH_2`, etc. for each additional target slot you configure.
 3. Hit the live URL:
    ```bash
    curl https://relayx-tryrun.sim4d.workers.dev/healthz
@@ -148,7 +148,7 @@ curl https://<ANTHROPIC_BASE_1>/messages \
 **Root cause**
 
 The relay forwarded the request correctly; the **upstream rejected the stored
-credential**. This happens whenever the deployed `OPENAI_API_<N>` /
+credential**. This happens whenever the deployed `OPENAI_KEY_<N>` /
 `ANTHROPIC_AUTH_<N>` are placeholder values (e.g. `dev-openai-key`,
 `my-sk-dummy`, or left as a test key). Code 10064 / deploy success gives no
 signal about secret *values* — secrets are write-only and `wrangler secret list`
@@ -170,12 +170,12 @@ shows names only.
 
 1. Set real upstream secrets (write-only; you must paste the real value):
    ```bash
-   printf '%s' "$REAL_OPENAI_KEY" | npx wrangler secret put OPENAI_API_1
+   printf '%s' "$REAL_OPENAI_KEY" | npx wrangler secret put OPENAI_KEY_1
    printf '%s' "$REAL_ANTHROPIC_TOKEN" | npx wrangler secret put ANTHROPIC_AUTH_1
    ```
 2. Re-test the same route; a valid upstream key returns `200` with a model reply.
 3. If you only need to prove the relay path (not real inference), any non-empty
-   upstream secret is enough to get past the relay's `OPENAI_API_<N>` /
+   upstream secret is enough to get past the relay's `OPENAI_KEY_<N>` /
    `ANTHROPIC_AUTH_<N>` required-checks; the upstream will still 401/404, which
    still confirms translation + forwarding + error rendering.
 

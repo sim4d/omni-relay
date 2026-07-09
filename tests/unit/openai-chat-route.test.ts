@@ -3,7 +3,7 @@ import worker from '../../src/index'
 describe('POST /v1/chat/completions', () => {
   const env = {
     OPENAI_BASE_1: 'https://openai.example/v1',
-    OPENAI_API_1: 'upstream-secret',
+    OPENAI_KEY_1: 'upstream-secret',
     OPENAI_MODEL_1: 'gpt-*',
     ANTHROPIC_BASE_1: 'https://anthropic.example/v1',
     ANTHROPIC_AUTH_1: 'anthropic-secret',

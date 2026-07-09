@@ -38,7 +38,7 @@ describe('streaming route handlers', () => {
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
         }),
       }),
-      { OPENAI_BASE_1: 'https://openai.example/v1', OPENAI_API_1: 'openai-secret', OPENAI_WIRE_1: 'responses', OPENAI_MODEL_1: 'gpt-*', RELAY_API_KEY: 'relay-secret' },
+      { OPENAI_BASE_1: 'https://openai.example/v1', OPENAI_KEY_1: 'openai-secret', OPENAI_WIRE_1: 'responses', OPENAI_MODEL_1: 'gpt-*', RELAY_API_KEY: 'relay-secret' },
       ctx,
     )
 

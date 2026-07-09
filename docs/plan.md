@@ -525,7 +525,7 @@ Add security after protocol correctness is stable.
 
 > **Update (V1.1):** the single-upstream-key constraint above is superseded.
 > The relay now supports multiple per-target slots (`OPENAI_BASE_<N>` /
-> `OPENAI_API_<N>` / `OPENAI_MODEL_<N>` / optional `OPENAI_WIRE_<N>`, and the
+> `OPENAI_KEY_<N>` / `OPENAI_MODEL_<N>` / optional `OPENAI_WIRE_<N>`, and the
 > Anthropic equivalents). Requests are routed to a target by matching the model
 > against each target's globs. The MVP's "one OpenAI upstream key" is now
 > "slot 1"; additional slots add more upstreams. Per-tenant relay keys remain
