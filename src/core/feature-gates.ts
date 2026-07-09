@@ -33,13 +33,4 @@ export function assertMilestoneOneFeatureSupport(
     )
   }
 
-  const openAIProviderNativeTools = request.extensions?.openai?.providerNativeTools
-  const customToolChoice = request.toolChoice?.type === 'tool' && request.toolChoice.toolType === 'custom'
-  if ((Array.isArray(openAIProviderNativeTools) && openAIProviderNativeTools.length > 0) || customToolChoice) {
-    if (provider !== 'openai' || routeProtocol !== 'responses') {
-      throw new UnsupportedFeatureError(
-        'OpenAI Responses provider-native tools are only supported on the OpenAI Responses same-provider path in MVP',
-      )
-    }
-  }
 }

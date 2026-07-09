@@ -45,9 +45,6 @@ function instructionsToText(instructions: ContentBlock[]): string | undefined {
 
 export function mapNormalizedRequestToOpenAIResponsesRequest(request: NormalizedRequest) {
   const openAIExtensions = request.extensions?.openai ?? {}
-  const providerNativeTools = Array.isArray(openAIExtensions.providerNativeTools)
-    ? openAIExtensions.providerNativeTools.filter((tool): tool is Record<string, unknown> => !!tool && typeof tool === 'object')
-    : []
   const unmappedRequestFields =
     openAIExtensions.unmappedRequestFields && typeof openAIExtensions.unmappedRequestFields === 'object'
       ? openAIExtensions.unmappedRequestFields as Record<string, unknown>
@@ -58,7 +55,7 @@ export function mapNormalizedRequestToOpenAIResponsesRequest(request: Normalized
     description: tool.description,
     parameters: tool.inputSchema,
   })) ?? []
-  const tools = [...functionTools, ...providerNativeTools]
+  const tools = functionTools
 
   return {
     ...unmappedRequestFields,
@@ -68,7 +65,7 @@ export function mapNormalizedRequestToOpenAIResponsesRequest(request: Normalized
     tools: tools.length > 0 ? tools : undefined,
     tool_choice:
       request.toolChoice?.type === 'tool'
-        ? { type: request.toolChoice.toolType === 'custom' ? 'custom' : 'function', name: request.toolChoice.name }
+        ? { type: 'function', name: request.toolChoice.name }
         : request.toolChoice?.type,
     temperature: request.output?.temperature,
     max_output_tokens: request.output?.maxOutputTokens,

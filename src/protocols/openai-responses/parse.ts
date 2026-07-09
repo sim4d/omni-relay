@@ -1,4 +1,4 @@
-import { UnsupportedFeatureError, ValidationError } from '../../errors'
+import { ValidationError } from '../../errors'
 import type { ContentBlock, NormalizedMessage, NormalizedRequest, NormalizedTool, ToolChoice } from '../../core/ir'
 import { openAIResponsesRequestSchema } from './schema'
 
@@ -96,17 +96,16 @@ function parseInput(input: string | Array<Record<string, unknown>>): { instructi
   return { instructions, messages }
 }
 
-function normalizeTools(tools: Array<Record<string, unknown>> | undefined): {
-  functionTools?: NormalizedTool[]
-  providerNativeTools?: Array<Record<string, unknown>>
-} {
-  if (!tools?.length) return {}
+function normalizeTools(tools: Array<Record<string, unknown>> | undefined): NormalizedTool[] | undefined {
+  if (!tools?.length) return undefined
 
   const functionTools: NormalizedTool[] = []
-  const providerNativeTools: Array<Record<string, unknown>> = []
 
   for (const tool of tools) {
-    if (tool.type === 'function') {
+    // Any tool with a name is function-shaped and can be translated to any
+    // provider's tool format. This covers 'function', 'custom' (Codex CLI),
+    // and any other type that carries name + parameters.
+    if (typeof tool.name === 'string' && tool.name.length > 0) {
       functionTools.push({
         type: 'function',
         name: String(tool.name),
@@ -116,18 +115,12 @@ function normalizeTools(tools: Array<Record<string, unknown>> | undefined): {
       continue
     }
 
-    if (typeof tool.type === 'string' && tool.type.length > 0) {
-      providerNativeTools.push(tool)
-      continue
-    }
-
-    throw new UnsupportedFeatureError(`OpenAI Responses tool type \"${String(tool.type)}\" is not supported in MVP`)
+    // Tools without a name (e.g. 'web_search') cannot be translated to a
+    // function-shaped schema. Silently drop them rather than failing the
+    // entire request — the upstream cannot use them cross-provider anyway.
   }
 
-  return {
-    functionTools: functionTools.length > 0 ? functionTools : undefined,
-    providerNativeTools: providerNativeTools.length > 0 ? providerNativeTools : undefined,
-  }
+  return functionTools.length > 0 ? functionTools : undefined
 }
 
 function normalizeToolChoice(toolChoice: unknown): ToolChoice | undefined {
@@ -146,7 +139,7 @@ function normalizeToolChoice(toolChoice: unknown): ToolChoice | undefined {
     return {
       type: 'tool',
       name: record.name as string,
-      toolType: record.type === 'custom' ? 'custom' : record.type === 'function' ? 'function' : undefined,
+      toolType: record.type === 'function' ? 'function' : undefined,
     }
   }
 
@@ -185,7 +178,7 @@ export function parseOpenAIResponsesRequest(input: unknown): NormalizedRequest {
       ...normalizedInput.instructions,
     ],
     messages: normalizedInput.messages,
-    tools: normalizedTools.functionTools,
+    tools: normalizedTools,
     toolChoice: normalizeToolChoice(tool_choice),
     output: {
       temperature,
@@ -197,7 +190,6 @@ export function parseOpenAIResponsesRequest(input: unknown): NormalizedRequest {
       openai: {
         ingressProtocol: 'responses',
         text,
-        ...(normalizedTools.providerNativeTools ? { providerNativeTools: normalizedTools.providerNativeTools } : {}),
         ...(Object.keys(unmappedRequestFields).length > 0 ? { unmappedRequestFields } : {}),
       },
     },

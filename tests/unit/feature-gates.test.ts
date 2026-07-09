@@ -80,7 +80,7 @@ describe('feature gating', () => {
     expect(body.text).toBeTruthy()
   })
 
-  it('allows OpenAI Responses provider-native tools on the same-provider route', async () => {
+  it('normalizes custom tools to function tools on the same-provider route', async () => {
     const fetchMock = vi.fn(async () =>
       new Response(
         JSON.stringify({
@@ -116,7 +116,6 @@ describe('feature gating', () => {
           input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
           tools: [
             { type: 'custom', name: 'codex', description: 'Run local commands' },
-            { type: 'namespace', name: 'multi_agent_v1', tools: [{ type: 'function', name: 'spawn_agent', parameters: { type: 'object' } }] },
             { type: 'web_search', external_web_access: false },
           ],
           tool_choice: { type: 'custom', name: 'codex' },
@@ -130,41 +129,12 @@ describe('feature gating', () => {
     expect(response.status).toBe(200)
     const [, init] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
     const body = JSON.parse(String(init.body)) as Record<string, unknown>
+    // Custom tool with name is normalized to function type
     expect(body.tools).toEqual([
-      { type: 'custom', name: 'codex', description: 'Run local commands' },
-      { type: 'namespace', name: 'multi_agent_v1', tools: [{ type: 'function', name: 'spawn_agent', parameters: { type: 'object' } }] },
-      { type: 'web_search', external_web_access: false },
+      { type: 'function', name: 'codex', description: 'Run local commands', parameters: undefined },
     ])
-    expect(body.tool_choice).toEqual({ type: 'custom', name: 'codex' })
+    expect(body.tool_choice).toEqual({ type: 'function', name: 'codex' })
     expect(body.reasoning).toEqual({ effort: 'high' })
-  })
-
-  it('rejects OpenAI Responses provider-native tools on a cross-provider route', async () => {
-    vi.stubGlobal('fetch', vi.fn())
-
-    const response = await worker.fetch(
-      new Request('https://example.com/v1/responses', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          authorization: 'Bearer relay-secret',
-        },
-        body: JSON.stringify({
-          providerHint: 'anthropic',
-          model: 'glm-4.7',
-          input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] }],
-          tools: [
-            { type: 'custom', name: 'codex', description: 'Run local commands' },
-            { type: 'namespace', name: 'multi_agent_v1', tools: [{ type: 'function', name: 'spawn_agent', parameters: { type: 'object' } }] },
-            { type: 'web_search', external_web_access: false },
-          ],
-        }),
-      }),
-      { ANTHROPIC_BASE_1: 'https://anthropic.example/v1', ANTHROPIC_AUTH_1: 'anthropic-secret', ANTHROPIC_MODEL_1: 'glm-*', RELAY_API_KEY: 'relay-secret' },
-      ctx,
-    )
-
-    expect(response.status).toBe(422)
   })
 
   it('rejects cross-provider anthropic thinking blocks on an OpenAI-selected route', async () => {

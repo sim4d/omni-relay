@@ -29,7 +29,7 @@ describe('parseOpenAIResponsesRequest', () => {
     expect(normalized.output?.maxOutputTokens).toBe(64)
   })
 
-  it('preserves OpenAI Responses provider-native tools, custom tool choice, and same-provider request fields', () => {
+  it('treats tools with names as function tools and drops nameless tools', () => {
     const normalized = parseOpenAIResponsesRequest({
       model: 'glm-5.2',
       input: [
@@ -61,26 +61,25 @@ describe('parseOpenAIResponsesRequest', () => {
       reasoning: { effort: 'high' },
     })
 
-    expect(normalized.tools).toBeUndefined()
-    expect(normalized.toolChoice).toEqual({ type: 'tool', name: 'codex', toolType: 'custom' })
-    expect(normalized.extensions?.openai?.providerNativeTools).toEqual([
+    // Tools with names are normalized to function tools (type is rewritten)
+    expect(normalized.tools).toEqual([
       {
-        type: 'custom',
+        type: 'function',
         name: 'codex',
         description: 'Run a Codex-native tool',
-        format: { type: 'grammar', syntax: 'lark', definition: 'start: /.+/' },
+        inputSchema: undefined,
       },
       {
-        type: 'namespace',
+        type: 'function',
         name: 'multi_agent_v1',
         description: 'Tools for sub-agents',
-        tools: [{ type: 'function', name: 'spawn_agent', parameters: { type: 'object' } }],
-      },
-      {
-        type: 'web_search',
-        external_web_access: false,
+        inputSchema: undefined,
       },
     ])
+    // tool_choice for custom tools is normalized to function type
+    expect(normalized.toolChoice).toEqual({ type: 'tool', name: 'codex', toolType: undefined })
+    // web_search (no name) is silently dropped, not preserved
+    expect(normalized.extensions?.openai?.providerNativeTools).toBeUndefined()
     expect(normalized.extensions?.openai?.unmappedRequestFields).toEqual({
       parallel_tool_calls: false,
       reasoning: { effort: 'high' },

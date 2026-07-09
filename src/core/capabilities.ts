@@ -6,7 +6,6 @@ export type ProviderCapabilities = {
   provider: ProviderId
   streaming: FeatureSupport
   customFunctionTools: FeatureSupport
-  providerNativeToolsCrossProvider: FeatureSupport
   reasoningNormalization: FeatureSupport
   multimodalNormalization: FeatureSupport
 }
@@ -16,7 +15,6 @@ export const PROVIDER_CAPABILITIES: Record<ProviderId, ProviderCapabilities> = {
     provider: 'openai',
     streaming: 'supported',
     customFunctionTools: 'supported',
-    providerNativeToolsCrossProvider: 'unsupported',
     reasoningNormalization: 'deferred',
     multimodalNormalization: 'deferred',
   },
@@ -24,7 +22,6 @@ export const PROVIDER_CAPABILITIES: Record<ProviderId, ProviderCapabilities> = {
     provider: 'anthropic',
     streaming: 'supported',
     customFunctionTools: 'supported',
-    providerNativeToolsCrossProvider: 'unsupported',
     reasoningNormalization: 'deferred',
     multimodalNormalization: 'deferred',
   },

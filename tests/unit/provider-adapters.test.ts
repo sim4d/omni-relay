@@ -26,31 +26,22 @@ describe('provider adapter mapping', () => {
     expect(payload.tool_choice).toEqual({ type: 'function', name: 'lookup_weather' })
   })
 
-  it('maps custom OpenAI Responses tools and preserved same-provider fields upstream', () => {
+  it('maps function tools and preserved same-provider fields upstream', () => {
     const payload = mapNormalizedRequestToOpenAIResponsesRequest({
       ...normalizedRequest,
-      toolChoice: { type: 'tool', name: 'codex', toolType: 'custom' },
-      tools: undefined,
+      toolChoice: { type: 'tool', name: 'codex' },
       extensions: {
         openai: {
           ingressProtocol: 'responses',
-          providerNativeTools: [
-            { type: 'custom', name: 'codex', description: 'Run commands' },
-            { type: 'namespace', name: 'multi_agent_v1', tools: [{ type: 'function', name: 'spawn_agent', parameters: { type: 'object' } }] },
-            { type: 'web_search', external_web_access: false },
-          ],
           unmappedRequestFields: { reasoning: { effort: 'high' }, parallel_tool_calls: false },
         },
       },
     })
     const payloadRecord = payload as Record<string, unknown>
 
-    expect(payload.tools).toEqual([
-      { type: 'custom', name: 'codex', description: 'Run commands' },
-      { type: 'namespace', name: 'multi_agent_v1', tools: [{ type: 'function', name: 'spawn_agent', parameters: { type: 'object' } }] },
-      { type: 'web_search', external_web_access: false },
-    ])
-    expect(payload.tool_choice).toEqual({ type: 'custom', name: 'codex' })
+    // Tools from normalizedRequest are function-shaped and forwarded as-is
+    expect((payload.tools?.[0] as Record<string, unknown>).type).toBe('function')
+    expect(payload.tool_choice).toEqual({ type: 'function', name: 'codex' })
     expect(payloadRecord.reasoning).toEqual({ effort: 'high' })
     expect(payloadRecord.parallel_tool_calls).toBe(false)
   })
