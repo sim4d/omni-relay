@@ -121,7 +121,7 @@ Deploy `omni-relay` to Cloudflare Workers compute straight from the Cloudflare d
 
    See [Verify](#verify) below for sample requests in both protocol directions.
 
-See [`docs/troubleshoot.md`](docs/troubleshoot.md) for deploy-time failures (macOS runtime block, stale Durable Object migrations, post-deploy verification).
+See [`docs/troubleshoot.md`](docs/troubleshoot.md) for deploy-time failures and post-deploy verification.
 
 ### Environment variables
 

@@ -71,57 +71,7 @@ If you must use local dev, run in a DevContainer / Linux host with glibc 2.35+.
 
 ---
 
-## 2. `wrangler deploy` fails: stale Durable Object migration (`code: 10064`)
-
-**Symptom**
-
-```
-✘ [ERROR] A request to the Cloudflare API (.../workers/scripts/relayx/versions) failed.
-New version of script does not export class 'RelayRateLimiter' which is depended on
-by existing Durable Objects. Did you forget to include it? If you renamed it, try a
-rename-class migration. If you want to delete all the Durable Objects implemented by
-the class, you can use a delete-class migration [code: 10064]
-```
-
-**Root cause**
-
-An earlier `wrangler.jsonc` registered a Durable Object class via a
-`new_sqlite_classes` migration. Removing the class from the code does **not**
-retire it on Cloudflare — the platform still expects the export. The deploy is
-rejected until you explicitly delete the class with a migration.
-
-**Recovery (the exact fix that worked here)**
-
-1. Add a `deleted_classes` migration to `wrangler.jsonc` (note: it is
-   `deleted_classes`, **not** `deleted_sqlite_classes` — the latter is rejected
-   with `Unexpected fields found in migrations field: "deleted_sqlite_classes"`):
-   ```jsonc
-   "migrations": [
-     {
-       "tag": "v2",
-       "deleted_classes": [
-         "RelayRateLimiter"
-       ]
-     }
-   ]
-   ```
-2. Validate the JSON before deploying:
-   ```bash
-   python3 -c "import json; json.load(open('wrangler.jsonc'))"
-   ```
-3. Redeploy:
-   ```bash
-   npx wrangler deploy
-   ```
-4. Commit the `wrangler.jsonc` change — it is required infrastructure, not local
-   state.
-
-If you only renamed the class, use `renamed_classes` instead. If you changed the
-storage backend, use `transferred_classes`.
-
----
-
-## 3. Upstream auth fails after a successful deploy (dummy/placeholder secrets)
+## 2. Upstream auth fails after a successful deploy (dummy/placeholder secrets)
 
 **Symptom**
 
@@ -181,7 +131,7 @@ shows names only.
 
 ---
 
-## 4. Live verification playbook (run after every deploy)
+## 3. Live verification playbook (run after every deploy)
 
 ```bash
 BASE="https://relayx.sim4d.workers.dev"
@@ -221,7 +171,7 @@ Interpretation:
 
 ---
 
-## 5. Relay auth edge cases (fail-closed)
+## 4. Relay auth edge cases (fail-closed)
 
 The relay is **fail-closed**: if `RELAY_API_KEY` is unset or the request
 credential does not match, every data route returns `401`. Common gotchas:
@@ -242,7 +192,7 @@ credential does not match, every data route returns `401`. Common gotchas:
 
 ---
 
-## 6. Quick decision tree
+## 5. Quick decision tree
 
 ```
 wrangler dev won't start?
