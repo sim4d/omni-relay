@@ -200,22 +200,22 @@ npx wrangler deploy
 
 ### Verify
 
-These examples assume slot 1 of each kind is configured with globs covering the model used (`glm-4.7` on the Anthropic target, `glm-5.2` on the OpenAI target). Adjust the model to one your globs match.
+Replace `<model>` with one that matches your configured globs.
 
 ```bash
 # Health
 curl https://<project-name>.<user-id>.workers.dev/healthz
 
-# OpenAI Responses → Anthropic upstream (model glob matches ANTHROPIC_MODEL_1)
-curl https://<project-name>.<user-id>.workers.dev/v1/responses \
+# OpenAI Chat Completions → OpenAI upstream
+curl https://<project-name>.<user-id>.workers.dev/v1/chat/completions \
   -H 'content-type: application/json' \
   -H 'authorization: Bearer <relay-key>' \
-  -d '{"providerHint":"anthropic","model":"glm-4.7","input":[{"role":"user","content":[{"type":"input_text","text":"Reply with exactly: omni relay ok"}]}]}'
+  -d '{"model":"<model>","messages":[{"role":"user","content":"Reply with exactly: omni relay ok"}]}'
 
-# Anthropic Messages → OpenAI upstream (model glob matches OPENAI_MODEL_1)
+# Anthropic Messages → OpenAI upstream (cross-protocol translation)
 curl https://<project-name>.<user-id>.workers.dev/v1/messages \
   -H 'content-type: application/json' \
   -H 'x-api-key: <relay-key>' \
   -H 'anthropic-version: 2023-06-01' \
-  -d '{"providerHint":"openai","model":"glm-5.2","max_tokens":256,"messages":[{"role":"user","content":"Reply with exactly: omni relay ok"}]}'
+  -d '{"model":"<model>","max_tokens":256,"messages":[{"role":"user","content":"Reply with exactly: omni relay ok"}]}'
 ```
