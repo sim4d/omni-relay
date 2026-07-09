@@ -16,6 +16,70 @@ Let **Codex CLI** and **Claude CLI** share one relay while either client can tar
 
 ## Quick Start
 
+Run `omni-relay` locally with a single OpenAI-compatible upstream target.
+
+1. **Clone the project**
+
+   ```bash
+   git clone https://github.com/sim4d/omni-relay.git
+   cd omni-relay
+   npm install
+   ```
+
+2. **Create a `.dev.vars` file for local secrets**
+
+   ```bash
+   cat > .dev.vars <<'EOF'
+   OPENAI_BASE_1="https://openrouter.ai/api/v1"
+   OPENAI_KEY_1="<your-openai-compatible-upstream-key>"
+   OPENAI_MODEL_1="nvidia/nemotron-3-super-120b-a12b:free"
+   RELAY_API_KEY="<your-relay-api-key>"
+   EOF
+   ```
+
+3. **Run the project on localhost**
+
+   ```bash
+   npm run dev
+   ```
+
+   > Keep this terminal running. Open a **new terminal** for the remaining steps.
+   > The default port is `8787`; if it's already in use, check Wrangler's output
+   > for the actual `http://localhost:<port>`.
+
+4. **Verify the local server**
+
+   ```bash
+   curl http://127.0.0.1:8787/healthz
+   ```
+
+5. **Create a Codex CLI profile**
+
+   Create `~/.codex/relay.config.toml`:
+
+   ```toml
+   model = "nvidia/nemotron-3-super-120b-a12b:free"
+   model_provider = "relay"
+   
+   [model_providers.relay]
+   name = "relay"
+   base_url = "http://127.0.0.1:8787/v1"
+   wire_api = "responses"
+   env_key = "RELAY_API_KEY"
+   ```
+
+6. **Export the relay key into your shell, then start Codex**
+
+   ```bash
+   export RELAY_API_KEY="<your-relay-api-key>"
+   codex -p relay
+   ```
+
+   > Codex reads `env_key` from the OS environment, not from `.dev.vars`.
+   > The value must match what you put in `.dev.vars` in step 2.
+
+## Deploy Cloudflare Workers
+
 Deploy `omni-relay` to Cloudflare Workers compute straight from the Cloudflare dashboard.
 
 1. **Fork or import the repository**
@@ -152,4 +216,3 @@ curl https://<project-name>.<user-id>.workers.dev/v1/messages \
   -H 'anthropic-version: 2023-06-01' \
   -d '{"providerHint":"openai","model":"glm-5.2","max_tokens":256,"messages":[{"role":"user","content":"Reply with exactly: omni relay ok"}]}'
 ```
-
