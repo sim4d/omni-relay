@@ -63,7 +63,8 @@ describe('streaming route handlers', () => {
       },
     })
 
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(upstream, { status: 200 })))
+    const fetchMock = vi.fn(async () => new Response(upstream, { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
 
     const response = await worker.fetch(
       new Request('https://example.com/v1/messages', {
@@ -85,6 +86,52 @@ describe('streaming route handlers', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toContain('text/event-stream')
+    const [url] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
+    expect(url).toBe('https://anthropic.example/v1/messages')
+  })
+
+  it('streams /v1/messages with auto-appended /v1 when base has no /v1', async () => {
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            'event: message_start\n' +
+            'data: {"type":"message_start","message":{"id":"msg_1","model":"MiniMax-M1"}}\n\n' +
+            'event: content_block_delta\n' +
+            'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}\n\n' +
+            'event: message_stop\n' +
+            'data: {"type":"message_stop"}\n\n',
+          ),
+        )
+        controller.close()
+      },
+    })
+
+    const fetchMock = vi.fn(async () => new Response(upstream, { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': 'relay-secret',
+        },
+        body: JSON.stringify({
+          model: 'MiniMax-M1',
+          max_tokens: 64,
+          stream: true,
+          messages: [{ role: 'user', content: 'Hello' }],
+        }),
+      }),
+      { ANTHROPIC_BASE_1: 'https://api.minimaxi.com/anthropic', ANTHROPIC_AUTH_1: 'minimax-secret', ANTHROPIC_MODEL_1: 'MiniMax*', RELAY_API_KEY: 'relay-secret' },
+      ctx,
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('text/event-stream')
+    const [url] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
+    expect(url).toBe('https://api.minimaxi.com/anthropic/v1/messages')
   })
 
   it('streams /v1/chat/completions through an Anthropic upstream in cross-provider mode', async () => {
@@ -104,7 +151,8 @@ describe('streaming route handlers', () => {
       },
     })
 
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(upstream, { status: 200 })))
+    const fetchMock = vi.fn(async () => new Response(upstream, { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
 
     const response = await worker.fetch(
       new Request('https://example.com/v1/chat/completions', {
@@ -125,5 +173,7 @@ describe('streaming route handlers', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toContain('text/event-stream')
+    const [url] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
+    expect(url).toBe('https://anthropic.example/v1/messages')
   })
 })

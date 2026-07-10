@@ -38,6 +38,14 @@ function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, '')
 }
 
+// Anthropic-compatible upstreams always speak the /v1/messages path, so the
+// relay appends /v1 automatically.  Strip a trailing /v1 from the configured
+// base URL so users don't have to include it — and so legacy configs that do
+// include it keep working without producing a doubled /v1/v1 prefix.
+function normalizeAnthropicBaseUrl(baseUrl: string): string {
+  return normalizeBaseUrl(baseUrl).replace(/\/v1$/i, '')
+}
+
 function parseModelGlobs(raw: string): string[] {
   return raw
     .split(',')
@@ -137,7 +145,9 @@ export function parseUpstreamTargets(env: AppEnv): UpstreamTargetsConfig {
       )
     }
 
-    const baseUrl = normalizeBaseUrl(slot.base!)
+    const baseUrl = slot.kind === 'anthropic'
+      ? normalizeAnthropicBaseUrl(slot.base!)
+      : normalizeBaseUrl(slot.base!)
     if (!baseUrl) {
       throw new ConfigurationError(
         `${kindUpper}_BASE_${slot.slot} must be a non-empty base URL`,

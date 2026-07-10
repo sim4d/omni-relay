@@ -172,4 +172,48 @@ describe('POST /v1/messages', () => {
     expect(response.status).toBe(401)
     expect(fetch).not.toHaveBeenCalled()
   })
+
+  it('auto-appends /v1 to the upstream URL when ANTHROPIC_BASE has no /v1', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          id: 'msg_auto_v1',
+          type: 'message',
+          model: 'MiniMax-M1',
+          content: [{ type: 'text', text: 'ok' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 5, output_tokens: 4 },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await worker.fetch(
+      new Request('https://example.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': 'relay-secret',
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'MiniMax-M1',
+          max_tokens: 256,
+          messages: [{ role: 'user', content: 'Hello' }],
+        }),
+      }),
+      {
+        ANTHROPIC_BASE_1: 'https://api.minimaxi.com/anthropic',
+        ANTHROPIC_AUTH_1: 'minimax-secret',
+        ANTHROPIC_MODEL_1: 'MiniMax*',
+        RELAY_API_KEY: 'relay-secret',
+      },
+      ctx,
+    )
+
+    expect(response.status).toBe(200)
+    const [url] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit]
+    expect(url).toBe('https://api.minimaxi.com/anthropic/v1/messages')
+  })
 })

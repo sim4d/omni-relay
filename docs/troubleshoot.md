@@ -90,7 +90,9 @@ Deploy reports success, but live calls return upstream errors:
 A direct probe of the upstream confirms the cause:
 
 ```bash
-curl https://<ANTHROPIC_BASE_1>/messages \
+# Use the base URL without /v1 (the relay appends /v1 automatically).
+# If your ANTHROPIC_BASE_1 still includes /v1, omit it here.
+curl https://<ANTHROPIC_BASE_1>/v1/messages \
   -H "Authorization: Bearer <token>" -H "anthropic-version: 2023-06-01"
 # => {"error":"Invalid API key"}   (HTTP 401)
 ```

@@ -17,7 +17,7 @@ Done — I completed the goal and marked it complete.
 
 - Updated production config to use the compatible backends:
   - OpenAI-compatible: https://open.bigmodel.cn/api/coding/paas/v4
-  - Anthropic-compatible: https://open.bigmodel.cn/api/anthropic/v1
+  - Anthropic-compatible: https://open.bigmodel.cn/api/anthropic
 
 - Refreshed docs:
   - README.md

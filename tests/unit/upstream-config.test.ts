@@ -70,6 +70,76 @@ describe('parseUpstreamTargets', () => {
     expect(target.baseUrl).toBe('https://anthropic.example')
   })
 
+  it('strips trailing /v1 from Anthropic base URLs (backward compat)', () => {
+    const env: AppEnv = {
+      ANTHROPIC_BASE_1: 'https://api.minimaxi.com/anthropic/v1',
+      ANTHROPIC_AUTH_1: 'secret',
+      ANTHROPIC_MODEL_1: 'MiniMax*',
+    }
+    const config = parseUpstreamTargets(env)
+    expect(config.anthropic[0]!.baseUrl).toBe('https://api.minimaxi.com/anthropic')
+  })
+
+  it('does not strip /v1 from OpenAI base URLs', () => {
+    const env: AppEnv = {
+      OPENAI_BASE_1: 'https://openrouter.ai/api/v1',
+      OPENAI_KEY_1: 'secret',
+      OPENAI_MODEL_1: 'gpt-*',
+    }
+    const config = parseUpstreamTargets(env)
+    expect(config.openai[0]!.baseUrl).toBe('https://openrouter.ai/api/v1')
+  })
+
+  it('strips trailing slashes then /v1 from Anthropic base URLs', () => {
+    const env: AppEnv = {
+      ANTHROPIC_BASE_1: 'https://open.bigmodel.cn/api/anthropic/v1///',
+      ANTHROPIC_AUTH_1: 'secret',
+      ANTHROPIC_MODEL_1: 'glm-*',
+    }
+    const config = parseUpstreamTargets(env)
+    expect(config.anthropic[0]!.baseUrl).toBe('https://open.bigmodel.cn/api/anthropic')
+  })
+
+  it('leaves Anthropic base URL unchanged when it has no /v1 suffix', () => {
+    const env: AppEnv = {
+      ANTHROPIC_BASE_1: 'https://api.z.ai/api/anthropic',
+      ANTHROPIC_AUTH_1: 'secret',
+      ANTHROPIC_MODEL_1: 'glm-*',
+    }
+    const config = parseUpstreamTargets(env)
+    expect(config.anthropic[0]!.baseUrl).toBe('https://api.z.ai/api/anthropic')
+  })
+
+  it('strips a root-level /v1 from Anthropic base URLs (host + /v1 only)', () => {
+    const env: AppEnv = {
+      ANTHROPIC_BASE_1: 'https://api.host/v1',
+      ANTHROPIC_AUTH_1: 'secret',
+      ANTHROPIC_MODEL_1: 'claude-*',
+    }
+    const config = parseUpstreamTargets(env)
+    expect(config.anthropic[0]!.baseUrl).toBe('https://api.host')
+  })
+
+  it('strips an uppercase /V1 suffix from Anthropic base URLs (case-insensitive)', () => {
+    const env: AppEnv = {
+      ANTHROPIC_BASE_1: 'https://api.host/anthropic/V1',
+      ANTHROPIC_AUTH_1: 'secret',
+      ANTHROPIC_MODEL_1: 'claude-*',
+    }
+    const config = parseUpstreamTargets(env)
+    expect(config.anthropic[0]!.baseUrl).toBe('https://api.host/anthropic')
+  })
+
+  it('rejects an Anthropic base URL that normalizes to empty after /v1 stripping', () => {
+    const env: AppEnv = {
+      ANTHROPIC_BASE_1: '/v1',
+      ANTHROPIC_AUTH_1: 'secret',
+      ANTHROPIC_MODEL_1: 'claude-*',
+    }
+    expect(() => parseUpstreamTargets(env)).toThrow(ConfigurationError)
+    expect(() => parseUpstreamTargets(env)).toThrow(/must be a non-empty base URL/)
+  })
+
   it('strips trailing slashes from base URLs', () => {
     const config = parseUpstreamTargets(singleOpenai({ OPENAI_BASE_1: 'https://openai.example/v1///' }))
     expect(config.openai[0]!.baseUrl).toBe('https://openai.example/v1')

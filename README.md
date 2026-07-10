@@ -69,6 +69,27 @@ Run `omni-relay` locally with a single OpenAI-compatible upstream target.
    env_key = "RELAY_API_KEY"
    ```
 
+5b. **Create a Claude CLI profile**
+
+   Create `~/.claude/settings.json-relay`:
+
+   ```json
+   {
+     "env": {
+       "ANTHROPIC_BASE_URL": "http://127.0.0.1:8787",
+       "ANTHROPIC_AUTH_TOKEN": "<your-relay-api-key>",
+       "ANTHROPIC_API_KEY": "",
+       "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7"
+     }
+   }
+   ```
+
+   Then start Claude CLI:
+
+   ```bash
+   claude --settings ~/.claude/settings.json-relay
+   ```
+
 6. **Export the relay key into your shell, then start Codex**
 
    ```bash
@@ -166,11 +187,11 @@ The relay supports **multiple upstream targets per compatible category**. Each t
 
 | Variable | Required | Type | Description |
 | --- | :---: | --- | --- |
-| `ANTHROPIC_BASE_<N>` | **Required** | Plaintext | e.g., `https://open.bigmodel.cn/api/anthropic/v1` |
+| `ANTHROPIC_BASE_<N>` | **Required** | Plaintext | e.g., `https://open.bigmodel.cn/api/anthropic` |
 | `ANTHROPIC_AUTH_<N>` | **Required** | Secret | `sk-<key>` |
 | `ANTHROPIC_MODEL_<N>` | **Required** | Plaintext | Comma-separated model globs, e.g. `glm-*`. |
 
-**NOTE**: please make sure to add '/v1' to the baseurl
+**NOTE**: The relay automatically appends `/v1` to `ANTHROPIC_BASE_<N>` when calling upstream. Do **not** include `/v1` in the base URL — the relay will strip it if present (backward compatible), but the recommended form omits it.
 
 **Relay-wide variables**:
 

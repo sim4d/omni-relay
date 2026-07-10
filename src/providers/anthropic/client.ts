@@ -21,7 +21,7 @@ export async function invokeAnthropicMessages(request: NormalizedRequest, target
     ...authHeaders(target),
   }
 
-  const upstream = await fetch(`${target.baseUrl}/messages`, {
+  const upstream = await fetch(`${target.baseUrl}/v1/messages`, {
     method: 'POST',
     headers,
     body: JSON.stringify(mapNormalizedRequestToAnthropicMessagesRequest(request)),
@@ -43,7 +43,7 @@ export async function invokeAnthropicMessagesStream(request: NormalizedRequest, 
     ...authHeaders(target),
   }
 
-  const upstream = await fetch(`${target.baseUrl}/messages`, {
+  const upstream = await fetch(`${target.baseUrl}/v1/messages`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
