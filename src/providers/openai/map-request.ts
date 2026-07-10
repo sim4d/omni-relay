@@ -53,7 +53,7 @@ export function mapNormalizedRequestToOpenAIChatRequest(request: NormalizedReque
       function: {
         name: tool.name,
         description: tool.description,
-        parameters: tool.inputSchema,
+        parameters: tool.inputSchema ?? { type: 'object', properties: {} },
       },
     })),
     tool_choice:

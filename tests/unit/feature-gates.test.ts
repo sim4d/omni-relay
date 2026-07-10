@@ -131,7 +131,7 @@ describe('feature gating', () => {
     const body = JSON.parse(String(init.body)) as Record<string, unknown>
     // Custom tool with name is normalized to function type
     expect(body.tools).toEqual([
-      { type: 'function', name: 'codex', description: 'Run local commands', parameters: undefined },
+      { type: 'function', name: 'codex', description: 'Run local commands', parameters: { type: 'object', properties: {} } },
     ])
     expect(body.tool_choice).toEqual({ type: 'function', name: 'codex' })
     expect(body.reasoning).toEqual({ effort: 'high' })

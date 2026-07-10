@@ -53,7 +53,7 @@ export function mapNormalizedRequestToOpenAIResponsesRequest(request: Normalized
     type: 'function' as const,
     name: tool.name,
     description: tool.description,
-    parameters: tool.inputSchema,
+    parameters: tool.inputSchema ?? { type: 'object', properties: {} },
   })) ?? []
   const tools = functionTools
 

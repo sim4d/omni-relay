@@ -1,5 +1,6 @@
 import { mapNormalizedRequestToAnthropicMessagesRequest } from '../../src/providers/anthropic/map-request'
 import { mapAnthropicMessagesResponseToNormalizedResult } from '../../src/providers/anthropic/map-response'
+import { mapNormalizedRequestToOpenAIChatRequest } from '../../src/providers/openai/map-request'
 import { mapNormalizedRequestToOpenAIResponsesRequest } from '../../src/providers/openai/map-responses-request'
 import { mapOpenAIResponsesResponseToNormalizedResult } from '../../src/providers/openai/map-responses-response'
 import type { NormalizedRequest } from '../../src/core/ir'
@@ -123,5 +124,57 @@ describe('provider adapter mapping', () => {
       name: 'lookup_weather',
       argumentsJson: '{"city":"Paris"}',
     })
+  })
+  it('defaults missing tool parameters to {type:object,properties:{}} for Chat Completions', () => {
+    const payload = mapNormalizedRequestToOpenAIChatRequest({
+      ...normalizedRequest,
+      tools: [{ type: 'function', name: 'codex' }],
+    })
+    const tool = (payload.tools?.[0] as Record<string, unknown>).function as Record<string, unknown>
+    expect(tool.parameters).toEqual({ type: 'object', properties: {} })
+  })
+
+  it('defaults missing tool parameters to {type:object,properties:{}} for Responses', () => {
+    const payload = mapNormalizedRequestToOpenAIResponsesRequest({
+      ...normalizedRequest,
+      tools: [{ type: 'function', name: 'codex' }],
+    })
+    const tool = payload.tools?.[0] as Record<string, unknown>
+    expect(tool.parameters).toEqual({ type: 'object', properties: {} })
+  })
+
+  it('defaults null tool inputSchema to {type:object,properties:{}} (nullish coalescing)', () => {
+    const chatPayload = mapNormalizedRequestToOpenAIChatRequest({
+      ...normalizedRequest,
+      tools: [{ type: 'function', name: 'codex', inputSchema: null }],
+    })
+    const chatTool = (chatPayload.tools?.[0] as Record<string, unknown>).function as Record<string, unknown>
+    expect(chatTool.parameters).toEqual({ type: 'object', properties: {} })
+
+    const responsesPayload = mapNormalizedRequestToOpenAIResponsesRequest({
+      ...normalizedRequest,
+      tools: [{ type: 'function', name: 'codex', inputSchema: null }],
+    })
+    const responsesTool = responsesPayload.tools?.[0] as Record<string, unknown>
+    expect(responsesTool.parameters).toEqual({ type: 'object', properties: {} })
+  })
+
+  it('passes through a provided inputSchema unchanged', () => {
+    const schema = { type: 'object', properties: { cmd: { type: 'string' } }, required: ['cmd'] }
+    const chatPayload = mapNormalizedRequestToOpenAIChatRequest({
+      ...normalizedRequest,
+      tools: [{ type: 'function', name: 'exec', inputSchema: schema }],
+    })
+    const chatTool = (chatPayload.tools?.[0] as Record<string, unknown>).function as Record<string, unknown>
+    expect(chatTool.parameters).toEqual(schema)
+  })
+
+  it('defaults missing tool parameters to {type:object,properties:{}} for Anthropic', () => {
+    const payload = mapNormalizedRequestToAnthropicMessagesRequest({
+      ...normalizedRequest,
+      tools: [{ type: 'function', name: 'codex' }],
+    })
+    const tool = payload.tools?.[0] as Record<string, unknown>
+    expect(tool.input_schema).toEqual({ type: 'object', properties: {} })
   })
 })
