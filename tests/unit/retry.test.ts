@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { withRetry, isRetryableError, parseRetryAfterMs } from '../../src/core/retry'
+import { buildUpstreamErrorDetails } from '../../src/lib/fetch'
 import { UpstreamAPIError } from '../../src/errors'
 
 describe('withRetry', () => {
@@ -176,22 +177,97 @@ describe('withRetry Retry-After support', () => {
     expect(fn).toHaveBeenCalledTimes(2)
   })
 
-  it('gives up when Retry-After exceeds remaining budget', async () => {
+  it('gives up immediately when retryAfterMs exceeds remaining budget', async () => {
     const fn = vi.fn().mockRejectedValue(new UpstreamAPIError('rate limited', { retryAfterMs: 30_000 }, 429))
     const promise = withRetry(fn).catch((e) => e)
 
-    // First call fails immediately
+    // First call fails immediately; withRetry sees retryAfterMs (30s) > remainingBudget (25s)
+    // and gives up without waiting — respecting upstream guidance and staying within the
+    // Workers 30s wall-clock limit.
     await vi.advanceTimersByTimeAsync(0)
-    // Advance well past all possible delays
+    // Advance well past any possible delay to confirm no further retries
     for (let i = 0; i < 5; i++) {
       await vi.advanceTimersByTimeAsync(10_000)
     }
 
     const result = await promise
     expect(result).toBeInstanceOf(UpstreamAPIError)
-    // Retry-After (30s) is clamped to 25s budget, so one retry happens,
-    // then the second attempt finds budget exhausted and gives up.
+    expect(fn).toHaveBeenCalledTimes(1)
+  })
+
+  it('gives up immediately when a large Retry-After header exceeds the budget', async () => {
+    const response = new Response('{}', { status: 429, headers: { 'retry-after': '999999' } })
+    const details = buildUpstreamErrorDetails(response, { error: 'rate limited' })
+    const fn = vi.fn().mockRejectedValue(new UpstreamAPIError('rate limited', details, 429))
+    const promise = withRetry(fn).catch((e) => e)
+
+    // The parsed 999,999s Retry-After far exceeds the 25s budget, so withRetry
+    // should give up immediately without waiting.
+    await vi.advanceTimersByTimeAsync(0)
+    for (let i = 0; i < 5; i++) {
+      await vi.advanceTimersByTimeAsync(10_000)
+    }
+
+    const result = await promise
+    expect(result).toBeInstanceOf(UpstreamAPIError)
+    expect(fn).toHaveBeenCalledTimes(1)
+  })
+
+  it('honours Retry-After: 0 as a retry-now hint', async () => {
+    const fn = vi.fn()
+      .mockRejectedValueOnce(new UpstreamAPIError('rate limited', { retryAfterMs: 0 }, 429))
+      .mockResolvedValueOnce('ok')
+
+    const promise = withRetry(fn)
+    await vi.advanceTimersByTimeAsync(0)
+    const result = await promise
+    expect(result).toBe('ok')
     expect(fn).toHaveBeenCalledTimes(2)
+  })
+
+  it('ignores negative or non-number retryAfterMs details', async () => {
+    // Negative retryAfterMs should be ignored (parseRetryAfterMs clamps to undefined upstream,
+    // but defence-in-depth here covers direct callers that pass a malformed details object).
+    const fn = vi.fn()
+      .mockRejectedValueOnce(new UpstreamAPIError('rate limited', { retryAfterMs: -5 }, 429))
+      .mockResolvedValueOnce('ok')
+
+    const promise = withRetry(fn)
+    await vi.advanceTimersByTimeAsync(10_000)
+    const result = await promise
+    expect(result).toBe('ok')
+    expect(fn).toHaveBeenCalledTimes(2)
+  })
+
+  it('gives up when accumulated Retry-After exceeds remaining budget on second attempt', async () => {
+    // First 429: Retry-After 15s, budget 25s → waits 15s, totalDelay=15000
+    // Second 429: Retry-After 15s, remaining budget 10s → 15s > 10s → gives up
+    const fn = vi.fn()
+      .mockRejectedValueOnce(new UpstreamAPIError('rate limited', { retryAfterMs: 15_000 }, 429))
+      .mockRejectedValueOnce(new UpstreamAPIError('rate limited', { retryAfterMs: 15_000 }, 429))
+
+    const promise = withRetry(fn).catch((e) => e)
+    await vi.advanceTimersByTimeAsync(15_000)
+    const result = await promise
+    expect(result).toBeInstanceOf(UpstreamAPIError)
+    expect(fn).toHaveBeenCalledTimes(2)
+  })
+
+  it('honours Retry-After exactly when it fits remaining budget after first retry', async () => {
+    // First 429: Retry-After 10s, budget 25s → waits 10s, totalDelay=10000
+    // Second 429: Retry-After 10s, remaining 15s → 10s < 15s → retries, totalDelay=20000
+    // Third: success
+    const fn = vi.fn()
+      .mockRejectedValueOnce(new UpstreamAPIError('rate limited', { retryAfterMs: 10_000 }, 429))
+      .mockRejectedValueOnce(new UpstreamAPIError('rate limited', { retryAfterMs: 10_000 }, 429))
+      .mockResolvedValueOnce('ok')
+
+    const promise = withRetry(fn)
+    await vi.advanceTimersByTimeAsync(10_000)
+    await vi.advanceTimersByTimeAsync(10_000)
+    const result = await promise
+    expect(result).toBe('ok')
+    expect(fn).toHaveBeenCalledTimes(3)
   })
 
   it('falls back to random delay when Retry-After is absent', async () => {
@@ -208,21 +284,60 @@ describe('withRetry Retry-After support', () => {
 })
 
 describe('parseRetryAfterMs', () => {
-  it('parses numeric seconds', () => {
-    expect(parseRetryAfterMs('30')).toBe(25_000)  // clamped to MAX_TOTAL_DELAY_MS
+  it('parses numeric seconds without clamping', () => {
+    expect(parseRetryAfterMs('30')).toBe(30_000)
     expect(parseRetryAfterMs('0')).toBe(0)
+    expect(parseRetryAfterMs('1000')).toBe(1_000_000)
   })
 
-  it('parses HTTP-date format', () => {
-    const future = new Date(Date.now() + 5_000).toUTCString()
+  it('parses HTTP-date format without clamping', () => {
+    const future = new Date(Date.now() + 60_000).toUTCString()
     const result = parseRetryAfterMs(future)
     expect(result).toBeGreaterThan(0)
-    expect(result).toBeLessThanOrEqual(5_000)
+    expect(result).toBeGreaterThanOrEqual(59_000)
   })
 
   it('returns undefined for unparseable values', () => {
     expect(parseRetryAfterMs(null)).toBeUndefined()
     expect(parseRetryAfterMs('')).toBeUndefined()
     expect(parseRetryAfterMs('not-a-date')).toBeUndefined()
+  })
+
+  it('returns undefined for whitespace-only input', () => {
+    expect(parseRetryAfterMs('   ')).toBeUndefined()
+    expect(parseRetryAfterMs('\t\n')).toBeUndefined()
+    // ' 30 ' should still parse (trimmed, then parsed)
+    expect(parseRetryAfterMs(' 30 ')).toBe(30_000)
+  })
+
+  it('returns undefined for negative inputs', () => {
+    expect(parseRetryAfterMs('-1')).toBeUndefined()
+    expect(parseRetryAfterMs('-100')).toBeUndefined()
+    expect(parseRetryAfterMs('-0.5')).toBeUndefined()
+  })
+
+  it('returns undefined for non-finite values', () => {
+    expect(parseRetryAfterMs('Infinity')).toBeUndefined()
+    expect(parseRetryAfterMs('-Infinity')).toBeUndefined()
+  })
+
+  it('returns 0 for a past HTTP-date (retry-now)', () => {
+    const past = new Date(Date.now() - 60_000).toUTCString()
+    expect(parseRetryAfterMs(past)).toBe(0)
+  })
+
+  it('rejects comma-containing numeric values (joined headers)', () => {
+    // V8's Date parser would parse "5, 10" as a past date → 0 without this guard
+    expect(parseRetryAfterMs('5, 10')).toBeUndefined()
+    expect(parseRetryAfterMs('5,10')).toBeUndefined()
+  })
+
+  it('rejects hex and scientific notation', () => {
+    expect(parseRetryAfterMs('0x10')).toBeUndefined()
+    expect(parseRetryAfterMs('1e3')).toBeUndefined()
+  })
+
+  it('returns undefined for very large values that overflow to Infinity', () => {
+    expect(parseRetryAfterMs('1e308')).toBeUndefined()
   })
 })

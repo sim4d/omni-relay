@@ -119,4 +119,29 @@ describe('parseAnthropicMessagesRequest', () => {
     expect(normalized.instructions).toEqual([{ type: 'text', text: 'Use terse bullets.' }])
     expect(normalized.messages).toEqual([{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }])
   })
+
+  it('coalesces consecutive assistant tool_use messages into one assistant message', () => {
+    const normalized = parseAnthropicMessagesRequest({
+      model: 'claude-sonnet-4-0',
+      max_tokens: 256,
+      messages: [
+        { role: 'user', content: 'Hello' },
+        {
+          role: 'assistant',
+          content: [{ type: 'tool_use', id: 'toolu_1', name: 'tool_a', input: {} }],
+        },
+        {
+          role: 'assistant',
+          content: [{ type: 'tool_use', id: 'toolu_2', name: 'tool_b', input: {} }],
+        },
+      ],
+    })
+
+    expect(normalized.messages).toHaveLength(2)
+    expect(normalized.messages[0]).toEqual({ role: 'user', content: [{ type: 'text', text: 'Hello' }] })
+    expect(normalized.messages[1].role).toBe('assistant')
+    expect(normalized.messages[1].content).toHaveLength(2)
+    expect(normalized.messages[1].content[0]).toMatchObject({ type: 'tool_call', id: 'toolu_1' })
+    expect(normalized.messages[1].content[1]).toMatchObject({ type: 'tool_call', id: 'toolu_2' })
+  })
 })

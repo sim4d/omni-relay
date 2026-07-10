@@ -13,6 +13,11 @@ const MAX_TOTAL_DELAY_MS = 25_000
 // HTTP status codes worth retrying: rate limiting + transient server errors.
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504])
 
+// HTTP-date regex (RFC 7231 §7.1.3 / IMF-fixdate). Validates that a string
+// looks like an HTTP-date before passing it to the Date constructor, which is
+// too lenient and would parse strings like "5, 10" as valid dates.
+const HTTP_DATE_RE = /^[A-Za-z]{3},\s\d{1,2}\s[A-Za-z]{3}\s\d{4}\s\d{2}:\d{2}:\d{2}\sGMT$/
+
 export function isRetryableError(error: unknown): boolean {
   return error instanceof UpstreamAPIError && RETRYABLE_STATUSES.has(error.status)
 }
@@ -22,25 +27,48 @@ function randomDelay(): number {
 }
 
 /**
- * Parse a Retry-After header value (seconds or HTTP-date) into milliseconds.
+ * Parse a Retry-After header value (seconds or HTTP-date) into raw milliseconds.
  * Returns undefined if the value is absent or unparseable.
  */
 function parseRetryAfterMs(value: string | null | undefined): number | undefined {
   if (!value) return undefined
 
   const trimmed = value.trim()
+  // Reject whitespace-only or otherwise empty input; otherwise `Number("")`
+  // would yield 0 and we'd silently retry-now instead of falling back.
+  if (!trimmed) return undefined
 
-  // Numeric: seconds until retry
-  const seconds = Number(trimmed)
-  if (!Number.isNaN(seconds) && seconds >= 0) {
-    return Math.min(seconds * 1000, MAX_TOTAL_DELAY_MS)
+  // Reject negative numbers explicitly. They are not valid Retry-After values
+  // (RFC 7231 §7.1.3 allows only non-negative integers or HTTP-dates), and
+  // `new Date("-1")` is implementation-defined — some engines parse it as
+  // 1 second before the epoch, which would cause a silent retry-now.
+  if (trimmed.startsWith('-')) return undefined
+
+  // Numeric: RFC 7231 §7.1.3 specifies non-negative decimal integers only.
+  // Use a strict regex to reject hex (0x10), scientific notation (1e3),
+  // comma-joined values (5, 10), and other non-decimal formats that
+  // parseInt/Number would silently accept.
+  if (/^\d+$/.test(trimmed)) {
+    const parsed = parseInt(trimmed, 10)
+    const ms = parsed * 1000
+    // Guard against float overflow for very large values.
+    if (Number.isFinite(ms)) {
+      return ms
+    }
+    return undefined
   }
 
-  // HTTP-date format
+  // HTTP-date format (RFC 7231 §7.1.3): validate that the value resembles an
+  // HTTP-date before calling Date(). V8's Date parser is lenient and will
+  // parse strings like "5, 10" as a valid past date, which would incorrectly
+  // return 0 (retry-now) instead of undefined.
+  if (!HTTP_DATE_RE.test(trimmed)) {
+    return undefined
+  }
   const date = new Date(trimmed)
   if (!Number.isNaN(date.getTime())) {
     const delta = date.getTime() - Date.now()
-    return delta > 0 ? Math.min(delta, MAX_TOTAL_DELAY_MS) : 0
+    return delta > 0 ? delta : 0
   }
 
   return undefined
@@ -90,15 +118,26 @@ export async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
       let retryAfterMs: number | undefined
 
       if (details && typeof details === 'object' && 'retryAfterMs' in details) {
-        retryAfterMs = (details as { retryAfterMs?: number }).retryAfterMs
+        const raw = (details as { retryAfterMs?: unknown }).retryAfterMs
+        if (typeof raw === 'number' && raw >= 0) {
+          retryAfterMs = raw
+        }
       }
 
       if (retryAfterMs !== undefined) {
-        delayMs = Math.min(retryAfterMs, MAX_TOTAL_DELAY_MS - totalDelayMs)
-        if (delayMs <= 0) {
+        // Retry-After: respect upstream guidance exactly. If the upstream's
+        // requested wait exceeds our remaining budget, give up immediately
+        // rather than silently capping — capping would violate upstream
+        // guidance and may push us past the Workers 30s wall-clock limit.
+        // Retry-After: 0 is a valid "retry now" hint (RFC 7231 §7.1.3) and
+        // is honoured as a zero-delay retry; the MAX_RETRIES cap prevents
+        // unbounded tight loops if the upstream keeps returning 0.
+        const remainingBudget = MAX_TOTAL_DELAY_MS - totalDelayMs
+        if (retryAfterMs > remainingBudget) {
           // Retry-After exceeds remaining budget — give up
           throw error
         }
+        delayMs = retryAfterMs
       } else {
         delayMs = randomDelay()
       }

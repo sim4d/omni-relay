@@ -89,7 +89,13 @@ const server = createServer(async (nodeReq, nodeRes) => {
 
     if (response.body) {
       const nodeReadable = Readable.fromWeb(response.body)
-      nodeReadable.on("error", () => { try { nodeRes.end() } catch {} })
+      nodeReadable.on("error", (err) => {
+        // Log only a safe error class/message; avoid dumping the full response
+        // body in case it contains upstream-sensitive data.
+        const safe = err instanceof Error ? err.message : String(err)
+        console.error("[dev-node] upstream stream error:", safe)
+        try { nodeRes.end() } catch {}
+      })
       nodeReadable.pipe(nodeRes)
     } else {
       nodeRes.end()

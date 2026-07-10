@@ -120,3 +120,54 @@ describe('parseOpenAIResponsesRequest', () => {
     ])
   })
 })
+
+describe('parseOpenAIResponsesRequest parallel tool call coalescing', () => {
+  it('coalesces consecutive function_call items into one assistant message', () => {
+    const normalized = parseOpenAIResponsesRequest({
+      model: 'kimi-k2.7-code',
+      input: [
+        { role: 'user', content: [{ type: 'input_text', text: 'do two things' }] },
+        { role: 'assistant', content: [{ type: 'output_text', text: 'Doing.' }] },
+        { type: 'function_call', name: 'read_mcp_resource', arguments: '{}', call_id: 'call_A' },
+        { type: 'function_call', name: 'exec_command', arguments: '{}', call_id: 'call_B' },
+        { type: 'function_call_output', call_id: 'call_A', output: 'fail' },
+        { type: 'function_call_output', call_id: 'call_B', output: 'ok' },
+      ],
+    })
+
+    // The two function_call items should be ONE assistant message
+    const assistantToolMessages = normalized.messages.filter(
+      (m) => m.role === 'assistant' && m.content.some((b) => b.type === 'tool_call'),
+    )
+    expect(assistantToolMessages).toHaveLength(1)
+    expect(assistantToolMessages[0].content).toHaveLength(2)
+    expect(assistantToolMessages[0].content[0]).toMatchObject({ type: 'tool_call', id: 'call_A' })
+    expect(assistantToolMessages[0].content[1]).toMatchObject({ type: 'tool_call', id: 'call_B' })
+
+    // Tool results stay as separate messages (correct for OpenAI Chat egress)
+    const toolMessages = normalized.messages.filter((m) => m.role === 'tool')
+    expect(toolMessages).toHaveLength(2)
+  })
+
+  it('preserves function_call items that are separated by other messages', () => {
+    const normalized = parseOpenAIResponsesRequest({
+      model: 'glm-5.2',
+      input: [
+        { role: 'user', content: [{ type: 'input_text', text: 'step 1' }] },
+        { type: 'function_call', name: 'exec', arguments: '{}', call_id: 'call_1' },
+        { type: 'function_call_output', call_id: 'call_1', output: 'done' },
+        { role: 'user', content: [{ type: 'input_text', text: 'step 2' }] },
+        { type: 'function_call', name: 'exec', arguments: '{}', call_id: 'call_2' },
+        { type: 'function_call_output', call_id: 'call_2', output: 'done' },
+      ],
+    })
+
+    const assistantToolMessages = normalized.messages.filter(
+      (m) => m.role === 'assistant' && m.content.some((b) => b.type === 'tool_call'),
+    )
+    // call_1 and call_2 are separated by a user message, so they stay separate
+    expect(assistantToolMessages).toHaveLength(2)
+    expect(assistantToolMessages[0].content).toHaveLength(1)
+    expect(assistantToolMessages[1].content).toHaveLength(1)
+  })
+})

@@ -16,8 +16,8 @@ describe('extractRetryAfterMs', () => {
     expect(extractRetryAfterMs(makeResponse(429, '10'))).toBe(10_000)
   })
 
-  it('clamps to MAX_TOTAL_DELAY_MS for very large numeric values', () => {
-    expect(extractRetryAfterMs(makeResponse(429, '999999'))).toBe(25_000)
+  it('does not clamp very large numeric values', () => {
+    expect(extractRetryAfterMs(makeResponse(429, '999999'))).toBe(999_999_000)
   })
 
   it('returns 0 for "0"', () => {
@@ -28,11 +28,11 @@ describe('extractRetryAfterMs', () => {
     expect(extractRetryAfterMs(makeResponse(429, 'not-a-date-or-number'))).toBeUndefined()
   })
 
-  it('parses HTTP-date format in the future', () => {
-    const future = new Date(Date.now() + 5_000).toUTCString()
+  it('parses HTTP-date format in the future without clamping', () => {
+    const future = new Date(Date.now() + 60_000).toUTCString()
     const result = extractRetryAfterMs(makeResponse(503, future))
     expect(result).toBeGreaterThan(0)
-    expect(result).toBeLessThanOrEqual(5_000)
+    expect(result).toBeGreaterThanOrEqual(59_000)
   })
 })
 

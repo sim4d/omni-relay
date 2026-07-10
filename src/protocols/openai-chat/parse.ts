@@ -7,6 +7,7 @@ import type {
   ToolChoice,
   ToolResultContentBlock,
 } from '../../core/ir'
+import { coalesceAdjacentAssistantToolCalls } from '../../core/ir-normalize'
 import { openAIChatRequestSchema, type OpenAIChatRequest } from './schema'
 
 function toTextBlock(text: string): ContentBlock {
@@ -111,7 +112,7 @@ function normalizeMessages(messages: OpenAIChatRequest['messages']): {
     })
   }
 
-  return { instructions, messages: normalizedMessages }
+  return { instructions, messages: coalesceAdjacentAssistantToolCalls(normalizedMessages) }
 }
 
 export function parseOpenAIChatRequest(input: unknown): NormalizedRequest {

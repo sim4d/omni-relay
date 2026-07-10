@@ -1,5 +1,6 @@
 import { ValidationError } from '../../errors'
 import type { ContentBlock, NormalizedMessage, NormalizedRequest, NormalizedTool, ToolChoice } from '../../core/ir'
+import { coalesceAdjacentAssistantToolCalls } from '../../core/ir-normalize'
 import { openAIResponsesRequestSchema } from './schema'
 
 function textBlock(text: string): ContentBlock {
@@ -93,7 +94,7 @@ function parseInput(input: string | Array<Record<string, unknown>>): { instructi
     })
   }
 
-  return { instructions, messages }
+  return { instructions, messages: coalesceAdjacentAssistantToolCalls(messages) }
 }
 
 function normalizeTools(tools: Array<Record<string, unknown>> | undefined): NormalizedTool[] | undefined {

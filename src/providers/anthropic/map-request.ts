@@ -1,3 +1,4 @@
+import { coalesceAdjacentToolMessages } from '../../core/ir-normalize'
 import type { ContentBlock, NormalizedMessage, NormalizedRequest } from '../../core/ir'
 
 function parseArguments(argumentsJson: string): unknown {
@@ -65,11 +66,12 @@ function instructionsToAnthropicSystem(instructions: ContentBlock[]): string | A
 }
 
 export function mapNormalizedRequestToAnthropicMessagesRequest(request: NormalizedRequest) {
+  const messages = coalesceAdjacentToolMessages(request.messages)
   return {
     model: request.targetModel,
     max_tokens: request.output?.maxOutputTokens ?? 1024,
     system: instructionsToAnthropicSystem(request.instructions),
-    messages: request.messages.map(messageToAnthropic),
+    messages: messages.map(messageToAnthropic),
     tools: request.tools?.map((tool) => ({
       name: tool.name,
       description: tool.description,

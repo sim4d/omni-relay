@@ -1,5 +1,6 @@
 import { ValidationError } from '../../errors'
 import type { ContentBlock, NormalizedMessage, NormalizedRequest, NormalizedTool, ToolChoice } from '../../core/ir'
+import { coalesceAdjacentAssistantToolCalls } from '../../core/ir-normalize'
 import { anthropicMessagesRequestSchema } from './schema'
 
 function textBlock(text: string): ContentBlock {
@@ -143,7 +144,7 @@ export function parseAnthropicMessagesRequest(input: unknown): NormalizedRequest
       ...normalizeSystem(request.system as string | Array<Record<string, unknown>> | undefined),
       ...normalizedMessages.instructions,
     ],
-    messages: normalizedMessages.messages,
+    messages: coalesceAdjacentAssistantToolCalls(normalizedMessages.messages),
     tools: normalizeTools(request.tools as Array<{ name: string; description?: string; input_schema: unknown }> | undefined),
     toolChoice: normalizeToolChoice(request.tool_choice as { type: 'auto' | 'any' } | { type: 'tool'; name: string } | undefined),
     output: {
