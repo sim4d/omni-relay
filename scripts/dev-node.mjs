@@ -89,6 +89,7 @@ const server = createServer(async (nodeReq, nodeRes) => {
 
     if (response.body) {
       const nodeReadable = Readable.fromWeb(response.body)
+      nodeReadable.on("error", () => { try { nodeRes.end() } catch {} })
       nodeReadable.pipe(nodeRes)
     } else {
       nodeRes.end()

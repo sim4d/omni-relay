@@ -93,12 +93,12 @@ Run `omni-relay` locally with a single OpenAI-compatible upstream target.
    ```bash
    pm2 logs omni-relay     # tail logs
    pm2 status              # show process status
-   pm2 restart omni-relay  # restart after code changes
+   pm2 restart omni-relay --update-env  # restart (re-read .dev.vars)
    ```
 
    > Stop any foreground `npm run dev:node` first so port 8787 is free.
    > `dev:node` bundles once at startup with no auto-reload, so run
-   > `pm2 restart omni-relay` after code changes. Stop it with
+   > `pm2 restart omni-relay --update-env` after code changes. Stop it with
    > `pm2 delete omni-relay`.
 
 ## Deploy Cloudflare Workers

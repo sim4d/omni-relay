@@ -1,6 +1,6 @@
 import { AuthenticationError, UpstreamAPIError } from '../../errors'
 import type { NormalizedRequest, NormalizedResult, UpstreamTarget } from '../../core/ir'
-import { parseJsonResponse } from '../../lib/fetch'
+import { parseJsonResponse, buildUpstreamErrorDetails } from '../../lib/fetch'
 import { mapNormalizedRequestToOpenAIChatRequest } from './map-request'
 import { mapOpenAIChatResponseToNormalizedResult } from './map-response'
 import { mapOpenAIChatStreamToEvents } from './map-stream'
@@ -22,10 +22,7 @@ export async function invokeOpenAIChat(request: NormalizedRequest, target: Upstr
   const payload = await parseJsonResponse(upstream)
 
   if (!upstream.ok) {
-    throw new UpstreamAPIError('OpenAI upstream request failed', {
-      status: upstream.status,
-      payload,
-    }, upstream.status)
+    throw new UpstreamAPIError('OpenAI upstream request failed', buildUpstreamErrorDetails(upstream, payload), upstream.status)
   }
 
   return mapOpenAIChatResponseToNormalizedResult(payload)
@@ -50,10 +47,7 @@ export async function invokeOpenAIChatStream(request: NormalizedRequest, target:
 
   if (!upstream.ok) {
     const payload = await parseJsonResponse(upstream)
-    throw new UpstreamAPIError('OpenAI upstream request failed', {
-      status: upstream.status,
-      payload,
-    }, upstream.status)
+    throw new UpstreamAPIError('OpenAI upstream request failed', buildUpstreamErrorDetails(upstream, payload), upstream.status)
   }
 
   if (!upstream.body) {

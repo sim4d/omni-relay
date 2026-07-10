@@ -63,22 +63,105 @@ export function encodeSSEMessage(message: SSEMessage): Uint8Array {
   return encoder.encode(lines.join('\n'))
 }
 
-export function iterableToSSEStream(messages: AsyncIterable<SSEMessage>): ReadableStream<Uint8Array> {
+/**
+ * Default interval for SSE keep-alive heartbeats, in milliseconds.
+ *
+ * When the upstream model has long gaps between tokens (e.g. extended
+ * reasoning/thinking), the SSE connection would otherwise sit idle and the
+ * downstream client (Codex CLI) may time out and stop, requiring a manual
+ * "continue".  Periodic comment frames (`: keep-alive\n\n`) keep the
+ * connection alive without producing visible data events, mirroring the
+ * approach used by cliproxyapi's stream forwarder.
+ */
+const DEFAULT_KEEPALIVE_INTERVAL_MS = 15_000
+
+/** Minimum allowable keep-alive interval to prevent event-loop starvation. */
+const MIN_KEEPALIVE_INTERVAL_MS = 1_000
+
+const KEEPALIVE_FRAME = encoder.encode(': keep-alive\n\n')
+
+/** Safely enqueue, ignoring errors if the stream is already closed. */
+function safeEnqueue(controller: ReadableStreamDefaultController<Uint8Array>, chunk: Uint8Array): boolean {
+  try { controller.enqueue(chunk); return true } catch { return false }
+}
+
+/** Safely close, ignoring errors if already closed. */
+function safeClose(controller: ReadableStreamDefaultController<Uint8Array>): void {
+  try { controller.close() } catch { /* already closed */ }
+}
+
+type RaceResult =
+  | { type: 'message'; result: IteratorResult<SSEMessage> }
+  | { type: 'timeout' }
+  | { type: 'error' }
+
+export function iterableToSSEStream(
+  messages: AsyncIterable<SSEMessage>,
+  keepAliveIntervalMs: number = DEFAULT_KEEPALIVE_INTERVAL_MS,
+): ReadableStream<Uint8Array> {
+  const interval = Math.max(MIN_KEEPALIVE_INTERVAL_MS, keepAliveIntervalMs)
   const iterator = messages[Symbol.asyncIterator]()
+  let cancelled = false
 
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
-      const next = await iterator.next()
-      if (next.done) {
-        controller.close()
-        return
-      }
+      try {
+        // Fetch the next message ONCE.  This promise is kept across all
+        // keep-alive cycles so we never issue concurrent next() calls.
+        const pendingNext = iterator.next()
+        // Wrap with a rejection handler so that even if the iterator
+        // rejects (e.g. upstream error / client disconnect), the derived
+        // promise resolves cleanly instead of producing an unhandled
+        // rejection.  This is created ONCE and reused.
+        const messagePromise: Promise<RaceResult> = pendingNext.then(
+          (result) => ({ type: 'message' as const, result }),
+          () => ({ type: 'error' as const }),
+        )
 
-      controller.enqueue(encodeSSEMessage(next.value))
+        // Race the same messagePromise against fresh timers.
+        while (true) {
+          if (cancelled) return
+
+          let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+          try {
+            const outcome = await Promise.race([
+              messagePromise,
+              new Promise<RaceResult>((resolve) => {
+                timeoutId = setTimeout(() => resolve({ type: 'timeout' }), interval)
+              }),
+            ])
+
+            if (outcome.type === 'timeout') {
+              if (!cancelled) safeEnqueue(controller, KEEPALIVE_FRAME)
+              // messagePromise is still pending — loop and race it
+              // against a fresh timer.
+              continue
+            }
+
+            if (outcome.type === 'error' || outcome.result.done) {
+              // Close cleanly on both iterator completion and iterator rejection
+              // so downstream consumers (Node Readable.fromWeb, Workers runtime)
+              // see a closed stream and release resources immediately rather
+              // than waiting for connection timeout.
+              if (!cancelled) safeClose(controller)
+              return
+            }
+
+            if (!cancelled) safeEnqueue(controller, encodeSSEMessage(outcome.result.value))
+            return
+          } finally {
+            if (timeoutId !== undefined) clearTimeout(timeoutId)
+          }
+        }
+      } catch {
+        // Iterator threw — silently terminate.
+      }
     },
     async cancel(reason) {
+      cancelled = true
       if (iterator.return) {
-        await iterator.return(reason)
+        try { await iterator.return(reason) } catch { /* ignore */ }
       }
     },
   })

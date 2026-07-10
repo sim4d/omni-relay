@@ -1,6 +1,6 @@
 import { AuthenticationError, UpstreamAPIError } from '../../errors'
 import type { NormalizedRequest, NormalizedResult, UpstreamTarget } from '../../core/ir'
-import { parseJsonResponse } from '../../lib/fetch'
+import { parseJsonResponse, buildUpstreamErrorDetails } from '../../lib/fetch'
 import { mapNormalizedRequestToAnthropicMessagesRequest } from './map-request'
 import { mapAnthropicMessagesResponseToNormalizedResult } from './map-response'
 import { mapAnthropicStreamToEvents } from './map-stream'
@@ -30,10 +30,7 @@ export async function invokeAnthropicMessages(request: NormalizedRequest, target
   const payload = await parseJsonResponse(upstream)
 
   if (!upstream.ok) {
-    throw new UpstreamAPIError('Anthropic upstream request failed', {
-      status: upstream.status,
-      payload,
-    }, upstream.status)
+    throw new UpstreamAPIError('Anthropic upstream request failed', buildUpstreamErrorDetails(upstream, payload), upstream.status)
   }
 
   return mapAnthropicMessagesResponseToNormalizedResult(payload)
@@ -57,10 +54,7 @@ export async function invokeAnthropicMessagesStream(request: NormalizedRequest, 
 
   if (!upstream.ok) {
     const payload = await parseJsonResponse(upstream)
-    throw new UpstreamAPIError('Anthropic upstream request failed', {
-      status: upstream.status,
-      payload,
-    }, upstream.status)
+    throw new UpstreamAPIError('Anthropic upstream request failed', buildUpstreamErrorDetails(upstream, payload), upstream.status)
   }
 
   if (!upstream.body) {

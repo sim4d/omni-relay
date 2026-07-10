@@ -1,6 +1,6 @@
 import { AuthenticationError, UpstreamAPIError } from '../../errors'
 import type { NormalizedRequest, NormalizedResult, UpstreamTarget } from '../../core/ir'
-import { parseJsonResponse } from '../../lib/fetch'
+import { parseJsonResponse, buildUpstreamErrorDetails } from '../../lib/fetch'
 import { mapNormalizedRequestToOpenAIResponsesRequest } from './map-responses-request'
 import { mapOpenAIResponsesResponseToNormalizedResult } from './map-responses-response'
 import { mapOpenAIResponsesStreamToEvents } from './map-responses-stream'
@@ -22,10 +22,7 @@ export async function invokeOpenAIResponses(request: NormalizedRequest, target: 
   const payload = await parseJsonResponse(upstream)
 
   if (!upstream.ok) {
-    throw new UpstreamAPIError('OpenAI Responses upstream request failed', {
-      status: upstream.status,
-      payload,
-    }, upstream.status)
+    throw new UpstreamAPIError('OpenAI Responses upstream request failed', buildUpstreamErrorDetails(upstream, payload), upstream.status)
   }
 
   return mapOpenAIResponsesResponseToNormalizedResult(payload)
@@ -50,10 +47,7 @@ export async function invokeOpenAIResponsesStream(request: NormalizedRequest, ta
 
   if (!upstream.ok) {
     const payload = await parseJsonResponse(upstream)
-    throw new UpstreamAPIError('OpenAI Responses upstream request failed', {
-      status: upstream.status,
-      payload,
-    }, upstream.status)
+    throw new UpstreamAPIError('OpenAI Responses upstream request failed', buildUpstreamErrorDetails(upstream, payload), upstream.status)
   }
 
   if (!upstream.body) {
