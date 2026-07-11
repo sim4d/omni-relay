@@ -1,4 +1,5 @@
 import type { NormalizedEvent } from '../../core/stream-events'
+import { readNestedNumber } from '../../core/usage'
 import { UpstreamAPIError } from '../../errors'
 import { parseSSEStream } from '../../lib/sse'
 
@@ -36,6 +37,17 @@ export async function* mapOpenAIResponsesStreamToEvents(stream: ReadableStream<U
         started = true
       }
       yield { type: 'content_delta', deltaType: 'text', text: payload.delta }
+      continue
+    }
+
+    // Reasoning summary deltas (Responses API reasoning models).
+    if ((eventType === 'response.reasoning_summary_text.delta' || eventType === 'response.reasoning.delta') && typeof payload.delta === 'string') {
+      if (!started) {
+        yield { type: 'response_start', provider: 'openai', model }
+        yield { type: 'message_start', role: 'assistant' }
+        started = true
+      }
+      yield { type: 'reasoning_delta', text: payload.delta }
       continue
     }
 
@@ -121,6 +133,8 @@ export async function* mapOpenAIResponsesStreamToEvents(stream: ReadableStream<U
             inputTokens: typeof usage.input_tokens === 'number' ? usage.input_tokens : undefined,
             outputTokens: typeof usage.output_tokens === 'number' ? usage.output_tokens : undefined,
             totalTokens: typeof usage.total_tokens === 'number' ? usage.total_tokens : undefined,
+            cacheReadInputTokens: readNestedNumber(usage, ['input_tokens_details', 'cached_tokens']),
+            reasoningTokens: readNestedNumber(usage, ['output_tokens_details', 'reasoning_tokens']),
           },
         }
       }

@@ -1,4 +1,4 @@
-# omni-relay
+# Omni-Relay
 
 [![Deploy to Cloudflare Workers](https://img.shields.io/badge/Deploy-Cloudflare%20Workers-8A2BE2?logo=cloudflare)](https://workers.cloudflare.com/)
 [![OpenAI Compatible](https://img.shields.io/badge/OpenAI-Compatible-green)](https://openai.com/)
@@ -262,3 +262,7 @@ curl https://<project-name>.<user-id>.workers.dev/v1/messages \
   -H 'anthropic-version: 2023-06-01' \
   -d '{"model":"<model>","max_tokens":256,"messages":[{"role":"user","content":"Reply with exactly: omni relay ok"}]}'
 ```
+
+## Acknowledgements
+
+This project is inspired by [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) — a mature multi-vendor LLM relay whose cross-protocol translation work (OpenAI ↔ Anthropic ↔ Gemini, reasoning/thinking normalization, streaming, and more) informed the design and fidelity goals of `Omni-Relay`.

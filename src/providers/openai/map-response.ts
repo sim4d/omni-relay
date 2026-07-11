@@ -1,11 +1,28 @@
 import { UpstreamAPIError } from '../../errors'
+import { readNestedNumber } from '../../core/usage'
 import type { ContentBlock, NormalizedResult } from '../../core/ir'
 
 function normalizeOutput(message: Record<string, unknown>): ContentBlock[] {
   const output: ContentBlock[] = []
 
+  // Reasoning content (o-series / reasoning models).
+  if (typeof message.reasoning === 'string' && message.reasoning.length > 0) {
+    output.push({ type: 'reasoning', text: message.reasoning })
+  } else if (typeof message.reasoning_content === 'string' && message.reasoning_content.length > 0) {
+    output.push({ type: 'reasoning', text: message.reasoning_content })
+  }
+
   if (typeof message.content === 'string' && message.content.length > 0) {
     output.push({ type: 'text', text: message.content })
+  } else if (Array.isArray(message.content)) {
+    // Some Chat servers return content as multi-part array.
+    for (const part of message.content) {
+      if (!part || typeof part !== 'object') continue
+      const record = part as Record<string, unknown>
+      if (record.type === 'text' && typeof record.text === 'string') {
+        output.push({ type: 'text', text: record.text })
+      }
+    }
   }
 
   if (Array.isArray(message.tool_calls)) {
@@ -59,6 +76,8 @@ export function mapOpenAIChatResponseToNormalizedResult(payload: unknown): Norma
           inputTokens: typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : undefined,
           outputTokens: typeof usage.completion_tokens === 'number' ? usage.completion_tokens : undefined,
           totalTokens: typeof usage.total_tokens === 'number' ? usage.total_tokens : undefined,
+          cacheReadInputTokens: readNestedNumber(usage, ['prompt_tokens_details', 'cached_tokens']),
+          reasoningTokens: readNestedNumber(usage, ['completion_tokens_details', 'reasoning_tokens']),
         }
       : undefined,
     responseId: typeof record.id === 'string' ? record.id : undefined,

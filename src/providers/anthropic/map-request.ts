@@ -1,5 +1,7 @@
 import { coalesceAdjacentToolMessages } from '../../core/ir-normalize'
-import type { ContentBlock, NormalizedMessage, NormalizedRequest } from '../../core/ir'
+import type { CacheControlMarker, ContentBlock, NormalizedMessage, NormalizedRequest } from '../../core/ir'
+import { blockToAnthropicContent } from '../../core/content'
+import { toAnthropicThinkingWithBudget } from '../../core/reasoning'
 
 function parseArguments(argumentsJson: string): unknown {
   try {
@@ -9,32 +11,70 @@ function parseArguments(argumentsJson: string): unknown {
   }
 }
 
-function blocksToAnthropicContent(blocks: ContentBlock[]) {
-  return blocks.flatMap((block) => {
+function renderCacheControl(cc: CacheControlMarker | undefined): Record<string, unknown> | undefined {
+  if (!cc) return undefined
+  return cc.ttl ? { cache_control: { type: 'ephemeral', ttl: cc.ttl } } : { cache_control: { type: 'ephemeral' } }
+}
+
+function blocksToAnthropicContent(blocks: ContentBlock[]): Record<string, unknown>[] {
+  const results: Record<string, unknown>[] = []
+  for (const block of blocks) {
     if (block.type === 'text') {
-      return [{ type: 'text', text: block.text }]
+      const out: Record<string, unknown> = { type: 'text', text: block.text }
+      const cc = renderCacheControl(block.cacheControl)
+      if (cc) Object.assign(out, cc)
+      results.push(out)
+      continue
+    }
+
+    if (block.type === 'reasoning') {
+      results.push({
+        type: 'thinking',
+        thinking: block.text,
+        ...(block.signature ? { signature: block.signature } : {}),
+      })
+      continue
     }
 
     if (block.type === 'tool_call') {
-      return [{
+      results.push({
         type: 'tool_use',
-        id: block.id,
+        // Use the correlation id (call_id) when distinct from the item id, so
+        // tool_result.tool_use_id (which references toolCallId) matches. See the
+        // matching fix in the OpenAI Chat request mapper.
+        id: block.callId ?? block.id,
         name: block.name,
         input: parseArguments(block.argumentsJson),
-      }]
+      })
+      continue
     }
 
     if (block.type === 'tool_result') {
-      return [{
+      // Prefer structured content if present; otherwise the flat string. If the
+      // structured content rendered to nothing (all blocks were untranslatable,
+      // e.g. reasoning-only), fall back to the flat string so the tool output is
+      // never dropped.
+      const rendered = block.content && block.content.length > 0 ? blocksToAnthropicContent(block.content) : undefined
+      const content = rendered && rendered.length > 0 ? rendered : block.result
+      results.push({
         type: 'tool_result',
         tool_use_id: block.toolCallId,
-        content: block.result,
+        content,
         is_error: block.isError,
-      }]
+      })
+      continue
     }
 
-    return [block.payload]
-  })
+    if (block.type === 'provider_extension') {
+      // Same-provider Anthropic native blocks (e.g. redacted_thinking).
+      results.push(block.payload as Record<string, unknown>)
+      continue
+    }
+
+    const mediaBlock = blockToAnthropicContent(block)
+    if (mediaBlock) results.push(mediaBlock)
+  }
+  return results
 }
 
 function messageToAnthropic(message: NormalizedMessage) {
@@ -56,6 +96,15 @@ function instructionsToAnthropicSystem(instructions: ContentBlock[]): string | A
 
   const onlyText = instructions.every((block) => block.type === 'text')
   if (onlyText) {
+    // If any text block carries a cache_control marker we must keep the array
+    // form — collapsing to a string would drop the cache breakpoint.
+    const hasCacheControl = instructions.some(
+      (block): block is Extract<ContentBlock, { type: 'text' }> =>
+        block.type === 'text' && block.cacheControl !== undefined,
+    )
+    if (hasCacheControl) {
+      return blocksToAnthropicContent(instructions)
+    }
     return instructions
       .filter((block): block is Extract<ContentBlock, { type: 'text' }> => block.type === 'text')
       .map((block) => block.text)
@@ -67,6 +116,11 @@ function instructionsToAnthropicSystem(instructions: ContentBlock[]): string | A
 
 export function mapNormalizedRequestToAnthropicMessagesRequest(request: NormalizedRequest) {
   const messages = coalesceAdjacentToolMessages(request.messages)
+  const thinking = toAnthropicThinkingWithBudget(request.reasoning)
+  const anthropicExtensions = (request.extensions?.anthropic ?? {}) as Record<string, unknown>
+  const resolvedThinking =
+    thinking ?? (anthropicExtensions.thinking !== undefined ? anthropicExtensions.thinking : undefined)
+
   return {
     model: request.targetModel,
     max_tokens: request.output?.maxOutputTokens ?? 1024,
@@ -86,8 +140,10 @@ export function mapNormalizedRequestToAnthropicMessagesRequest(request: Normaliz
             ? { type: 'tool', name: request.toolChoice.name }
             : undefined,
     temperature: request.output?.temperature,
+    top_p: request.output?.topP,
     stop_sequences: request.output?.stop,
     metadata: request.metadata,
     stream: request.stream,
+    ...(resolvedThinking !== undefined ? { thinking: resolvedThinking } : {}),
   }
 }

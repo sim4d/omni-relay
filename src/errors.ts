@@ -95,22 +95,78 @@ export class NotImplementedError extends RelayError {
   }
 }
 
+export type ErrorProtocol = 'chat' | 'responses' | 'messages' | 'generic'
+
 export function isRelayError(error: unknown): error is RelayError {
   return error instanceof RelayError
 }
 
-export function renderError(error: unknown, requestId?: string): Response {
+/**
+ * Map an internal relay error code to the upstream-style error type string a
+ * given protocol expects (e.g. Anthropic's "invalid_request_error").
+ */
+function errorTypeFor(code: RelayErrorCode, protocol: ErrorProtocol): string {
+  if (protocol === 'messages') {
+    switch (code) {
+      case 'validation_error': return 'invalid_request_error'
+      case 'authentication_error': return 'authentication_error'
+      case 'unsupported_feature': return 'invalid_request_error'
+      case 'provider_selection_error': return 'invalid_request_error'
+      case 'upstream_api_error': return 'api_error'
+      case 'stream_protocol_error': return 'api_error'
+      case 'timeout_error': return 'api_error'
+      case 'not_found': return 'not_found_error'
+      case 'method_not_allowed': return 'invalid_request_error'
+      case 'not_implemented': return 'api_error'
+      default: return 'api_error'
+    }
+  }
+  // OpenAI-style clients read `type` loosely; these values are conventional.
+  switch (code) {
+    case 'validation_error': return 'invalid_request_error'
+    case 'authentication_error': return 'authentication_error'
+    case 'not_found': return 'invalid_request_error'
+    case 'method_not_allowed': return 'invalid_request_error'
+    case 'unsupported_feature': return 'invalid_request_error'
+    case 'provider_selection_error': return 'invalid_request_error'
+    default: return 'api_error'
+  }
+}
+
+export function renderError(error: unknown, requestId?: string, protocol: ErrorProtocol = 'generic'): Response {
   const relayError = isRelayError(error)
     ? error
     : new InternalRelayError('Unhandled error', {
         cause: error instanceof Error ? error.message : String(error),
       })
 
+  if (protocol === 'messages') {
+    // Anthropic error shape.
+    return Response.json(
+      {
+        type: 'error',
+        error: {
+          type: errorTypeFor(relayError.code, protocol),
+          message: relayError.message,
+        },
+      },
+      {
+        status: relayError.status,
+        headers: {
+          'x-request-id': requestId ?? '',
+        },
+      },
+    )
+  }
+
+  // OpenAI-style error shape (chat + responses share this).
   return Response.json(
     {
       error: {
-        code: relayError.code,
         message: relayError.message,
+        type: errorTypeFor(relayError.code, protocol),
+        code: relayError.code,
+        param: null,
         details: relayError.details,
         request_id: requestId,
       },

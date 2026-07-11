@@ -12,10 +12,28 @@ function normalizeContent(content: unknown): ContentBlock[] {
       return [{ type: 'text', text: record.text } satisfies ContentBlock]
     }
 
+    if (record.type === 'thinking' && typeof record.thinking === 'string') {
+      return [{
+        type: 'reasoning',
+        text: record.thinking,
+        signature: typeof record.signature === 'string' ? record.signature : undefined,
+      } satisfies ContentBlock]
+    }
+
+    if (record.type === 'redacted_thinking') {
+      return [{
+        type: 'provider_extension',
+        provider: 'anthropic',
+        name: 'redacted_thinking',
+        payload: record,
+      } satisfies ContentBlock]
+    }
+
     if (record.type === 'tool_use' && typeof record.id === 'string' && typeof record.name === 'string') {
       return [{
         type: 'tool_call',
         id: record.id,
+        callId: typeof record.call_id === 'string' ? record.call_id : undefined,
         name: record.name,
         argumentsJson:
           typeof record.input === 'string'
@@ -50,6 +68,8 @@ export function mapAnthropicMessagesResponseToNormalizedResult(payload: unknown)
             typeof usage.input_tokens === 'number' && typeof usage.output_tokens === 'number'
               ? usage.input_tokens + usage.output_tokens
               : undefined,
+          cacheCreationInputTokens: typeof usage.cache_creation_input_tokens === 'number' ? usage.cache_creation_input_tokens : undefined,
+          cacheReadInputTokens: typeof usage.cache_read_input_tokens === 'number' ? usage.cache_read_input_tokens : undefined,
         }
       : undefined,
     responseId: typeof record.id === 'string' ? record.id : undefined,

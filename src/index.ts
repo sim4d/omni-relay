@@ -1,7 +1,14 @@
-import { renderError } from './errors'
+import { renderError, type ErrorProtocol } from './errors'
 import { createRequestContext, log } from './observability'
 import { routeRequest } from './router'
 import type { AppEnv } from './env'
+
+function protocolForPath(path: string): ErrorProtocol {
+  if (path.endsWith('/v1/messages')) return 'messages'
+  if (path.endsWith('/v1/chat/completions')) return 'chat'
+  if (path.endsWith('/v1/responses')) return 'responses'
+  return 'generic'
+}
 
 export default {
   async fetch(request: Request, env: AppEnv, ctx: ExecutionContext): Promise<Response> {
@@ -26,7 +33,7 @@ export default {
         durationMs: Date.now() - startedAt,
         error: error instanceof Error ? error.message : String(error),
       })
-      return renderError(error, requestContext.requestId)
+      return renderError(error, requestContext.requestId, protocolForPath(requestContext.path))
     }
   },
 }

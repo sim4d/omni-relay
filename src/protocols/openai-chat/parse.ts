@@ -7,7 +7,9 @@ import type {
   ToolChoice,
   ToolResultContentBlock,
 } from '../../core/ir'
+import { openAIImagePartToBlock, openAIFilePartToBlock, blockToOpenAIChatContentPart } from '../../core/content'
 import { coalesceAdjacentAssistantToolCalls } from '../../core/ir-normalize'
+import { fromOpenAIReasoningEffort } from '../../core/reasoning'
 import { openAIChatRequestSchema, type OpenAIChatRequest } from './schema'
 
 function toTextBlock(text: string): ContentBlock {
@@ -27,6 +29,22 @@ function parseContentParts(parts: unknown[]): ContentBlock[] {
 
     if (record.type === 'input_text' && typeof record.text === 'string') {
       return [toTextBlock(record.text)]
+    }
+
+    if (record.type === 'image_url' || record.type === 'input_image' || record.type === 'image') {
+      const block = openAIImagePartToBlock(record)
+      // A malformed image part (empty url, no data) cannot be translated and
+      // has no useful provider-extension form. Skip it rather than wrapping it
+      // as a provider_extension, which would trip the cross-provider feature
+      // gate (422) on an Anthropic-selected route.
+      if (block) return [block]
+      return []
+    }
+
+    if (record.type === 'file' || record.type === 'input_file') {
+      const block = openAIFilePartToBlock(record)
+      if (block) return [block]
+      return []
     }
 
     return [{ type: 'provider_extension', provider: 'openai', name: String(record.type ?? 'content_part'), payload: part } satisfies ContentBlock]
@@ -123,7 +141,24 @@ export function parseOpenAIChatRequest(input: unknown): NormalizedRequest {
   }
 
   const request = parsed.data
-  const { model, providerHint, messages, tools, tool_choice, stream, temperature, max_completion_tokens, max_tokens, stop, ...rest } = request
+  const {
+    model,
+    providerHint,
+    messages,
+    tools,
+    tool_choice,
+    parallel_tool_calls,
+    stream,
+    stream_options,
+    temperature,
+    top_p,
+    reasoning_effort,
+    max_completion_tokens,
+    max_tokens,
+    stop,
+    response_format,
+    ...rest
+  } = request
   const normalizedMessages = normalizeMessages(messages)
 
   return {
@@ -133,17 +168,24 @@ export function parseOpenAIChatRequest(input: unknown): NormalizedRequest {
     messages: normalizedMessages.messages,
     tools: normalizeTools(tools),
     toolChoice: normalizeToolChoice(tool_choice),
+    reasoning: fromOpenAIReasoningEffort(reasoning_effort),
+    parallelToolCalls: typeof parallel_tool_calls === 'boolean' ? parallel_tool_calls : undefined,
     output: {
       temperature,
+      topP: top_p,
       maxOutputTokens: max_completion_tokens ?? max_tokens,
       stop: typeof stop === 'string' ? [stop] : stop,
     },
     stream: stream ?? false,
+    streamIncludeUsage: stream_options?.include_usage === true,
     extensions: {
       openai: {
         ingressProtocol: 'chat.completions',
-        unmappedRequestFields: rest,
+        ...(response_format !== undefined ? { response_format } : {}),
+        ...(Object.keys(rest).length > 0 ? { unmappedRequestFields: rest } : {}),
       },
     },
   }
 }
+
+export { blockToOpenAIChatContentPart }

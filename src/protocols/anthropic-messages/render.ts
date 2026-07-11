@@ -14,6 +14,14 @@ function renderContent(output: ContentBlock[]) {
       return [{ type: 'text', text: block.text }]
     }
 
+    if (block.type === 'reasoning') {
+      return [{
+        type: 'thinking',
+        thinking: block.text,
+        ...(block.signature ? { signature: block.signature } : {}),
+      }]
+    }
+
     if (block.type === 'tool_call') {
       return [{
         type: 'tool_use',
@@ -21,6 +29,11 @@ function renderContent(output: ContentBlock[]) {
         name: block.name,
         input: parseToolInput(block.argumentsJson),
       }]
+    }
+
+    // Anthropic redacted_thinking round-trips via provider extension.
+    if (block.type === 'provider_extension' && block.provider === 'anthropic' && block.name === 'redacted_thinking') {
+      return [block.payload as Record<string, unknown>]
     }
 
     return []
@@ -47,6 +60,12 @@ export function renderAnthropicMessagesResponse(result: NormalizedResult) {
     usage: {
       input_tokens: result.usage?.inputTokens ?? 0,
       output_tokens: result.usage?.outputTokens ?? 0,
+      ...(typeof result.usage?.cacheCreationInputTokens === 'number'
+        ? { cache_creation_input_tokens: result.usage.cacheCreationInputTokens }
+        : {}),
+      ...(typeof result.usage?.cacheReadInputTokens === 'number'
+        ? { cache_read_input_tokens: result.usage.cacheReadInputTokens }
+        : {}),
     },
   }
 }

@@ -39,6 +39,8 @@ export const anthropicMessagesRequestSchema = z.object({
   tool_choice: anthropicToolChoiceSchema.optional(),
   stream: z.boolean().optional(),
   temperature: z.number().optional(),
+  top_p: z.number().optional(),
+  thinking: z.unknown().optional(),
   metadata: z.record(z.string(), z.string()).optional(),
   stop_sequences: z.array(z.string()).optional(),
 }).passthrough()

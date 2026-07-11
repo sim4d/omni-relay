@@ -80,10 +80,10 @@ describe('parseOpenAIResponsesRequest', () => {
     expect(normalized.toolChoice).toEqual({ type: 'tool', name: 'codex', toolType: undefined })
     // web_search (no name) is silently dropped, not preserved
     expect(normalized.extensions?.openai?.providerNativeTools).toBeUndefined()
-    expect(normalized.extensions?.openai?.unmappedRequestFields).toEqual({
-      parallel_tool_calls: false,
-      reasoning: { effort: 'high' },
-    })
+    // parallel_tool_calls and reasoning are now modeled fields, not unmapped.
+    expect(normalized.parallelToolCalls).toBe(false)
+    expect(normalized.reasoning).toEqual({ effort: 'high', enabled: true })
+    expect(normalized.extensions?.openai?.unmappedRequestFields).toBeUndefined()
   })
 
   it('maps top-level function_call and function_call_output items into assistant/tool messages', () => {
@@ -115,7 +115,7 @@ describe('parseOpenAIResponsesRequest', () => {
     expect(normalized.messages).toEqual([
       { role: 'user', content: [{ type: 'text', text: 'Explain this project' }] },
       { role: 'assistant', content: [{ type: 'text', text: 'Let me inspect the repo.' }] },
-      { role: 'assistant', content: [{ type: 'tool_call', id: 'call_1', name: 'exec_command', argumentsJson: '{"cmd":"ls -la"}' }] },
+      { role: 'assistant', content: [{ type: 'tool_call', id: 'call_1', callId: 'call_1', name: 'exec_command', argumentsJson: '{"cmd":"ls -la"}' }] },
       { role: 'tool', content: [{ type: 'tool_result', toolCallId: 'call_1', result: 'total 10' }] },
     ])
   })

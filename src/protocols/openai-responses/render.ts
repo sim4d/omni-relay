@@ -7,9 +7,24 @@ function extractText(output: ContentBlock[]): string {
     .join('')
 }
 
+function extractReasoning(output: ContentBlock[]): string {
+  return output
+    .filter((block): block is Extract<ContentBlock, { type: 'reasoning' }> => block.type === 'reasoning')
+    .map((block) => block.text)
+    .join('')
+}
+
 function extractOutputItems(output: ContentBlock[]) {
   const text = extractText(output)
+  const reasoning = extractReasoning(output)
   const items: Array<Record<string, unknown>> = []
+
+  if (reasoning) {
+    items.push({
+      type: 'reasoning',
+      summary: [{ type: 'summary_text', text: reasoning }],
+    })
+  }
 
   if (text) {
     items.push({
@@ -27,10 +42,11 @@ function extractOutputItems(output: ContentBlock[]) {
 
   for (const block of output) {
     if (block.type === 'tool_call') {
+      const callId = block.callId ?? block.id
       items.push({
         type: 'function_call',
         id: block.id,
-        call_id: block.id,
+        call_id: callId,
         name: block.name,
         arguments: block.argumentsJson,
       })
@@ -47,10 +63,20 @@ function extractOutputItems(output: ContentBlock[]) {
 
 function renderUsage(usage?: Usage) {
   if (!usage) return undefined
+  const inputTokensDetails =
+    typeof usage.cacheReadInputTokens === 'number'
+      ? { cached_tokens: usage.cacheReadInputTokens }
+      : undefined
+  const outputTokensDetails =
+    typeof usage.reasoningTokens === 'number'
+      ? { reasoning_tokens: usage.reasoningTokens }
+      : undefined
   return {
     input_tokens: usage.inputTokens ?? 0,
     output_tokens: usage.outputTokens ?? 0,
     total_tokens: usage.totalTokens ?? (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
+    ...(inputTokensDetails ? { input_tokens_details: inputTokensDetails } : {}),
+    ...(outputTokensDetails ? { output_tokens_details: outputTokensDetails } : {}),
   }
 }
 

@@ -65,10 +65,13 @@ describe('OpenAI chat streaming foundations', () => {
       events.push(event)
     }
 
+    // An interrupted stream (no [DONE], no finish_reason) now still emits a
+    // terminal response_end so downstream clients see the stream complete.
     expect(events).toEqual([
       { type: 'response_start', provider: 'openai', model: 'gpt-5-mini' },
       { type: 'message_start', role: 'assistant' },
       { type: 'content_delta', deltaType: 'text', text: 'partial' },
+      { type: 'response_end', finishReason: 'stop' },
     ])
   })
 })

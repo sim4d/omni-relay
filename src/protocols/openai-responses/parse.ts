@@ -1,5 +1,7 @@
 import { ValidationError } from '../../errors'
 import type { ContentBlock, NormalizedMessage, NormalizedRequest, NormalizedTool, ToolChoice } from '../../core/ir'
+import { openAIImagePartToBlock, openAIFilePartToBlock } from '../../core/content'
+import { fromOpenAIReasoningEffort } from '../../core/reasoning'
 import { coalesceAdjacentAssistantToolCalls } from '../../core/ir-normalize'
 import { openAIResponsesRequestSchema } from './schema'
 
@@ -7,7 +9,7 @@ function textBlock(text: string): ContentBlock {
   return { type: 'text', text }
 }
 
-function parseContentArray(content: unknown[]): ContentBlock[] {
+function parseInputContentParts(content: unknown[]): ContentBlock[] {
   return content.flatMap((item) => {
     if (!item || typeof item !== 'object') {
       return [{ type: 'provider_extension', provider: 'openai', name: 'input_item', payload: item } satisfies ContentBlock]
@@ -18,28 +20,38 @@ function parseContentArray(content: unknown[]): ContentBlock[] {
       return [textBlock(record.text)]
     }
 
-    if ((record.type === 'function_call_output' || record.type === 'tool_result') && typeof record.call_id === 'string') {
-      return [{
-        type: 'tool_result',
-        toolCallId: record.call_id,
-        result: typeof record.output === 'string' ? record.output : JSON.stringify(record.output ?? null),
-      } satisfies ContentBlock]
+    if (record.type === 'input_image' || record.type === 'image' || record.type === 'image_url') {
+      const block = openAIImagePartToBlock(record)
+      // Skip malformed image parts rather than wrapping as provider_extension
+      // (which would 422 on cross-provider routes). See openai-chat/parse.ts.
+      if (block) return [block]
+      return []
     }
 
-    if ((record.type === 'function_call' || record.type === 'tool_call') && typeof record.name === 'string') {
-      return [{
-        type: 'tool_call',
-        id: typeof record.call_id === 'string' ? record.call_id : typeof record.id === 'string' ? record.id : crypto.randomUUID(),
-        name: record.name,
-        argumentsJson:
-          typeof record.arguments === 'string'
-            ? record.arguments
-            : JSON.stringify(record.arguments ?? {}),
-      } satisfies ContentBlock]
+    if (record.type === 'input_file' || record.type === 'file') {
+      const block = openAIFilePartToBlock(record)
+      if (block) return [block]
+      return []
     }
 
     return [{ type: 'provider_extension', provider: 'openai', name: String(record.type ?? 'input_item'), payload: item } satisfies ContentBlock]
   })
+}
+
+function parseContentArray(content: unknown[]): ContentBlock[] {
+  return parseInputContentParts(content)
+}
+
+/**
+ * Resolve the tool-call id and call_id from a Responses function_call item.
+ * `call_id` is the correlation id the client echoes back in
+ * `function_call_output`; `id` is the item id. When only one is present we use
+ * it for both, preserving whichever the upstream actually set.
+ */
+function resolveCallIds(record: Record<string, unknown>): { id: string; callId: string | undefined } {
+  const callId = typeof record.call_id === 'string' ? record.call_id : undefined
+  const id = typeof record.id === 'string' ? record.id : callId ?? crypto.randomUUID()
+  return { id, callId }
 }
 
 function parseInput(input: string | Array<Record<string, unknown>>): { instructions: ContentBlock[]; messages: NormalizedMessage[] } {
@@ -55,9 +67,19 @@ function parseInput(input: string | Array<Record<string, unknown>>): { instructi
 
   for (const item of input) {
     if ((item.type === 'function_call' || item.type === 'tool_call') && typeof item.name === 'string') {
+      const { id, callId } = resolveCallIds(item)
       messages.push({
         role: 'assistant',
-        content: parseContentArray([item]),
+        content: [{
+          type: 'tool_call',
+          id,
+          callId,
+          name: item.name,
+          argumentsJson:
+            typeof item.arguments === 'string'
+              ? item.arguments
+              : JSON.stringify(item.arguments ?? {}),
+        }],
       })
       continue
     }
@@ -65,7 +87,11 @@ function parseInput(input: string | Array<Record<string, unknown>>): { instructi
     if ((item.type === 'function_call_output' || item.type === 'tool_result') && typeof item.call_id === 'string') {
       messages.push({
         role: 'tool',
-        content: parseContentArray([item]),
+        content: [{
+          type: 'tool_result',
+          toolCallId: item.call_id,
+          result: typeof item.output === 'string' ? item.output : JSON.stringify(item.output ?? null),
+        }],
       })
       continue
     }
@@ -147,6 +173,21 @@ function normalizeToolChoice(toolChoice: unknown): ToolChoice | undefined {
   return undefined
 }
 
+/**
+ * Normalize the Responses `reasoning` object into the IR reasoning config.
+ * Supports `{ effort: '...' }`, `{ summary: '...' }`, and `{ exclude: true }`.
+ */
+function normalizeResponsesReasoning(reasoning: unknown) {
+  if (!reasoning || typeof reasoning !== 'object') return undefined
+  const record = reasoning as Record<string, unknown>
+  if (record.exclude === true || record.reasoning_effort === 'none') return { enabled: false }
+  const effortRaw = record.effort ?? record.reasoning_effort
+  const cfg = fromOpenAIReasoningEffort(effortRaw)
+  if (cfg) return cfg
+  // `reasoning: { summary: 'auto' }` with no effort → leave default (auto).
+  return undefined
+}
+
 export function parseOpenAIResponsesRequest(input: unknown): NormalizedRequest {
   const parsed = openAIResponsesRequestSchema.safeParse(input)
   if (!parsed.success) {
@@ -161,8 +202,11 @@ export function parseOpenAIResponsesRequest(input: unknown): NormalizedRequest {
     instructions: requestInstructions,
     tools,
     tool_choice,
+    parallel_tool_calls,
     stream,
     temperature,
+    top_p,
+    reasoning,
     max_output_tokens,
     text,
     metadata,
@@ -181,8 +225,11 @@ export function parseOpenAIResponsesRequest(input: unknown): NormalizedRequest {
     messages: normalizedInput.messages,
     tools: normalizedTools,
     toolChoice: normalizeToolChoice(tool_choice),
+    reasoning: normalizeResponsesReasoning(reasoning),
+    parallelToolCalls: typeof parallel_tool_calls === 'boolean' ? parallel_tool_calls : undefined,
     output: {
       temperature,
+      topP: top_p,
       maxOutputTokens: max_output_tokens,
     },
     stream: stream ?? false,

@@ -168,8 +168,20 @@ describe('feature gating', () => {
     expect(response.status).toBe(422)
   })
 
-  it('rejects cross-provider multimodal OpenAI content blocks on an Anthropic-selected route', async () => {
-    vi.stubGlobal('fetch', vi.fn())
+  it('translates cross-provider multimodal OpenAI image blocks to an Anthropic-selected route (A2)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          id: 'msg_img_1',
+          type: 'message',
+          model: 'glm-4.7',
+          content: [{ type: 'text', text: 'a cat' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 4, output_tokens: 2 },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    ))
 
     const response = await worker.fetch(
       new Request('https://example.com/v1/responses', {
@@ -195,6 +207,12 @@ describe('feature gating', () => {
       ctx,
     )
 
-    expect(response.status).toBe(422)
+    // A well-formed image URL now translates to an Anthropic image block
+    // instead of being rejected as an opaque provider-extension block.
+    expect(response.status).toBe(200)
+    const [, init] = (vi.mocked(fetch).mock.calls[0] ?? []) as unknown as [string, RequestInit]
+    const body = JSON.parse(String(init.body)) as { messages: Array<{ content: Array<Record<string, unknown>> }> }
+    const imageBlock = body.messages[0].content.find((b) => b.type === 'image') as { source?: { url?: string } } | undefined
+    expect(imageBlock?.source?.url).toBe('https://example.com/cat.png')
   })
 })

@@ -1,4 +1,5 @@
 import { UpstreamAPIError } from '../../errors'
+import { readNestedNumber } from '../../core/usage'
 import type { ContentBlock, NormalizedResult } from '../../core/ir'
 
 function parseOutputTextContent(content: unknown): ContentBlock[] {
@@ -19,11 +20,12 @@ function parseOutputTextContent(content: unknown): ContentBlock[] {
 function normalizeOutput(record: Record<string, unknown>): ContentBlock[] {
   const output: ContentBlock[] = []
 
-  if (typeof record.output_text === 'string' && record.output_text.length > 0) {
-    output.push({ type: 'text', text: record.output_text })
-  }
-
+  // Top-level reasoning summary text (Responses API may surface reasoning
+  // as output items of type 'reasoning').
   if (!Array.isArray(record.output)) {
+    if (typeof record.output_text === 'string' && record.output_text.length > 0) {
+      output.push({ type: 'text', text: record.output_text })
+    }
     return output
   }
 
@@ -36,10 +38,23 @@ function normalizeOutput(record: Record<string, unknown>): ContentBlock[] {
       continue
     }
 
+    if (outputItem.type === 'reasoning' && Array.isArray(outputItem.summary)) {
+      const text = outputItem.summary
+        .map((s) => (s && typeof s === 'object' && typeof (s as Record<string, unknown>).text === 'string' ? (s as Record<string, unknown>).text as string : ''))
+        .join('')
+      if (text.length > 0) {
+        output.push({ type: 'reasoning', text })
+      }
+      continue
+    }
+
     if (outputItem.type === 'function_call' && typeof outputItem.name === 'string') {
+      const id = typeof outputItem.id === 'string' ? outputItem.id : crypto.randomUUID()
+      const callId = typeof outputItem.call_id === 'string' ? outputItem.call_id : id
       output.push({
         type: 'tool_call',
-        id: typeof outputItem.call_id === 'string' ? outputItem.call_id : typeof outputItem.id === 'string' ? outputItem.id : crypto.randomUUID(),
+        id,
+        callId,
         name: outputItem.name,
         argumentsJson:
           typeof outputItem.arguments === 'string'
@@ -85,6 +100,8 @@ export function mapOpenAIResponsesResponseToNormalizedResult(payload: unknown): 
           inputTokens: typeof usage.input_tokens === 'number' ? usage.input_tokens : undefined,
           outputTokens: typeof usage.output_tokens === 'number' ? usage.output_tokens : undefined,
           totalTokens: typeof usage.total_tokens === 'number' ? usage.total_tokens : undefined,
+          cacheReadInputTokens: readNestedNumber(usage, ['input_tokens_details', 'cached_tokens']),
+          reasoningTokens: readNestedNumber(usage, ['output_tokens_details', 'reasoning_tokens']),
         }
       : undefined,
     responseId: typeof record.id === 'string' ? record.id : undefined,

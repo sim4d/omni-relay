@@ -49,11 +49,16 @@ export const openAIChatRequestSchema = z.object({
   messages: z.array(openAIChatMessageSchema).min(1),
   tools: z.array(openAIChatToolSchema).optional(),
   tool_choice: openAIChatToolChoiceSchema.optional(),
+  parallel_tool_calls: z.boolean().optional(),
   stream: z.boolean().optional(),
+  stream_options: z.object({ include_usage: z.boolean().optional() }).passthrough().optional(),
   temperature: z.number().optional(),
+  top_p: z.number().optional(),
+  reasoning_effort: z.string().optional(),
   max_completion_tokens: z.number().int().positive().optional(),
   max_tokens: z.number().int().positive().optional(),
   stop: z.union([z.string(), z.array(z.string())]).optional(),
+  response_format: z.unknown().optional(),
 }).passthrough()
 
 export type OpenAIChatRequest = z.infer<typeof openAIChatRequestSchema>

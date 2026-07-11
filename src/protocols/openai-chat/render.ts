@@ -2,12 +2,18 @@ import type { ContentBlock, NormalizedResult, Usage } from '../../core/ir'
 
 function extractAssistantMessage(output: ContentBlock[]): {
   content: string | null
+  reasoningContent?: string
   tool_calls?: Array<{
     id: string
     type: 'function'
     function: { name: string; arguments: string }
   }>
 } {
+  const reasoning = output
+    .filter((block): block is Extract<ContentBlock, { type: 'reasoning' }> => block.type === 'reasoning')
+    .map((block) => block.text)
+    .join('')
+
   const text = output
     .filter((block): block is Extract<ContentBlock, { type: 'text' }> => block.type === 'text')
     .map((block) => block.text)
@@ -26,6 +32,7 @@ function extractAssistantMessage(output: ContentBlock[]): {
 
   return {
     content: text.length > 0 ? text : null,
+    reasoningContent: reasoning.length > 0 ? reasoning : undefined,
     tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
   }
 }
@@ -33,10 +40,21 @@ function extractAssistantMessage(output: ContentBlock[]): {
 function renderUsage(usage?: Usage) {
   if (!usage) return undefined
 
+  const promptTokensDetails =
+    typeof usage.cacheReadInputTokens === 'number'
+      ? { cached_tokens: usage.cacheReadInputTokens }
+      : undefined
+  const completionTokensDetails =
+    typeof usage.reasoningTokens === 'number'
+      ? { reasoning_tokens: usage.reasoningTokens }
+      : undefined
+
   return {
     prompt_tokens: usage.inputTokens ?? 0,
     completion_tokens: usage.outputTokens ?? 0,
     total_tokens: usage.totalTokens ?? (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
+    ...(promptTokensDetails ? { prompt_tokens_details: promptTokensDetails } : {}),
+    ...(completionTokensDetails ? { completion_tokens_details: completionTokensDetails } : {}),
   }
 }
 
@@ -58,6 +76,7 @@ export function renderOpenAIChatResponse(result: NormalizedResult) {
         message: {
           role: 'assistant',
           content: message.content,
+          ...(message.reasoningContent ? { reasoning_content: message.reasoningContent } : {}),
           tool_calls: message.tool_calls ?? null,
         },
         finish_reason: finishReason,

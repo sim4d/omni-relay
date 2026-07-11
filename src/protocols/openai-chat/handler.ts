@@ -50,7 +50,7 @@ export async function handleOpenAIChatCompletions(request: Request, env: AppEnv,
       stream: true,
       upstreamLatencyMs,
     })
-    return new Response(renderOpenAIChatStream(events), {
+    return new Response(renderOpenAIChatStream(events, normalized.streamIncludeUsage === true), {
       status: 200,
       headers: {
         'content-type': 'text/event-stream; charset=utf-8',

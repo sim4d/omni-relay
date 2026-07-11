@@ -23,8 +23,23 @@ export async function* mapAnthropicStreamToEvents(stream: ReadableStream<Uint8Ar
       const message = payload.message && typeof payload.message === 'object' ? payload.message as Record<string, unknown> : payload
       model = typeof message.model === 'string' ? message.model : model
       yield { type: 'response_start', provider: 'anthropic', model }
-      yield { type: 'message_start', role: 'assistant' }
       started = true
+      // message_start may carry input usage incl. cache tokens. Emit usage
+      // BEFORE message_start so the egress renderer can include the real
+      // input/cache token counts in the SSE message_start frame.
+      const usage = message.usage && typeof message.usage === 'object' ? message.usage as Record<string, unknown> : undefined
+      if (usage) {
+        yield {
+          type: 'usage',
+          usage: {
+            inputTokens: typeof usage.input_tokens === 'number' ? usage.input_tokens : undefined,
+            outputTokens: typeof usage.output_tokens === 'number' ? usage.output_tokens : undefined,
+            cacheCreationInputTokens: typeof usage.cache_creation_input_tokens === 'number' ? usage.cache_creation_input_tokens : undefined,
+            cacheReadInputTokens: typeof usage.cache_read_input_tokens === 'number' ? usage.cache_read_input_tokens : undefined,
+          },
+        }
+      }
+      yield { type: 'message_start', role: 'assistant' }
       continue
     }
 
@@ -40,6 +55,7 @@ export async function* mapAnthropicStreamToEvents(stream: ReadableStream<Uint8Ar
         }
         yield { type: 'tool_call_start', id: block.id, name: block.name }
       }
+      // thinking blocks start with no payload; deltas carry the text.
       continue
     }
 
@@ -52,6 +68,21 @@ export async function* mapAnthropicStreamToEvents(stream: ReadableStream<Uint8Ar
           started = true
         }
         yield { type: 'content_delta', deltaType: 'text', text: delta.text }
+      }
+
+      if (delta?.type === 'thinking_delta' && typeof delta.thinking === 'string') {
+        if (!started) {
+          yield { type: 'response_start', provider: 'anthropic', model }
+          yield { type: 'message_start', role: 'assistant' }
+          started = true
+        }
+        yield { type: 'reasoning_delta', text: delta.thinking }
+      }
+
+      if (delta?.type === 'signature_delta' && typeof delta.signature === 'string') {
+        // Attach to the in-flight reasoning stream. We surface the signature
+        // delta so renderers that need it (Anthropic egress) can echo it.
+        yield { type: 'reasoning_delta', text: '', signatureDelta: delta.signature }
       }
 
       if (delta?.type === 'input_json_delta' && typeof delta.partial_json === 'string') {
@@ -90,6 +121,8 @@ export async function* mapAnthropicStreamToEvents(stream: ReadableStream<Uint8Ar
               typeof usage.input_tokens === 'number' && typeof usage.output_tokens === 'number'
                 ? usage.input_tokens + usage.output_tokens
                 : undefined,
+            cacheCreationInputTokens: typeof usage.cache_creation_input_tokens === 'number' ? usage.cache_creation_input_tokens : undefined,
+            cacheReadInputTokens: typeof usage.cache_read_input_tokens === 'number' ? usage.cache_read_input_tokens : undefined,
           },
         }
       }

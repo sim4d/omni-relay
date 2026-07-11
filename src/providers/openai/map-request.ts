@@ -1,4 +1,6 @@
 import type { ContentBlock, NormalizedMessage, NormalizedRequest } from '../../core/ir'
+import { blockToOpenAIChatContentPart } from '../../core/content'
+import { toOpenAIReasoningEffort } from '../../core/reasoning'
 
 function stringifyTextBlocks(blocks: ContentBlock[]): string | null {
   const text = blocks
@@ -9,22 +11,63 @@ function stringifyTextBlocks(blocks: ContentBlock[]): string | null {
   return text.length > 0 ? text : null
 }
 
+/**
+ * Render normalized content blocks into an OpenAI Chat `content` value.
+ * Returns string for text-only, array for multimodal, or null when empty.
+ */
+function toChatContentValue(blocks: ContentBlock[]): string | Array<Record<string, unknown>> | null {
+  const parts: Array<Record<string, unknown>> = []
+  let hasNonText = false
+
+  for (const block of blocks) {
+    if (block.type === 'text') {
+      parts.push({ type: 'text', text: block.text })
+      continue
+    }
+    const part = blockToOpenAIChatContentPart(block)
+    if (part) {
+      parts.push(part)
+      hasNonText = true
+      continue
+    }
+    // Untranslatable block (e.g. reasoning) — skip on the Chat path.
+  }
+
+  if (parts.length === 0) return null
+  if (!hasNonText && parts.every((p) => p.type === 'text')) {
+    return parts.map((p) => p.text as string).join('')
+  }
+  return parts
+}
+
+function toToolResultContent(block: Extract<ContentBlock, { type: 'tool_result' }>): string | Array<Record<string, unknown>> | null {
+  if (block.content && block.content.length > 0) {
+    const value = toChatContentValue(block.content)
+    if (value !== null) return value
+  }
+  return block.result
+}
+
 function toChatMessage(message: NormalizedMessage) {
   if (message.role === 'tool') {
     const toolResult = message.content.find((block): block is Extract<ContentBlock, { type: 'tool_result' }> => block.type === 'tool_result')
-
+    const content = toolResult ? toToolResultContent(toolResult) : ''
     return {
       role: 'tool',
-      content: toolResult?.result ?? '',
+      content,
       tool_call_id: toolResult?.toolCallId,
     }
   }
 
-  const textContent = stringifyTextBlocks(message.content)
+  const contentValue = toChatContentValue(message.content)
   const toolCalls = message.content
     .filter((block): block is Extract<ContentBlock, { type: 'tool_call' }> => block.type === 'tool_call')
     .map((block) => ({
-      id: block.id,
+      // Emit the correlation id (call_id) when the source distinguished it from
+      // the item id (OpenAI Responses function_call). The matching tool_result
+      // references toolCallId, so the single Chat id must be the correlation id
+      // or upstreams 400 on the mismatch.
+      id: block.callId ?? block.id,
       type: 'function' as const,
       function: {
         name: block.name,
@@ -32,17 +75,31 @@ function toChatMessage(message: NormalizedMessage) {
       },
     }))
 
+  // Assistant messages may carry reasoning text; OpenAI Chat surfaces this as
+  // `reasoning_content` on the message (consumed by some clients).
+  const reasoningText = message.content
+    .filter((block): block is Extract<ContentBlock, { type: 'reasoning' }> => block.type === 'reasoning')
+    .map((block) => block.text)
+    .join('')
+
   return {
     role: message.role,
-    content: textContent,
+    content: contentValue,
     ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+    ...(reasoningText.length > 0 ? { reasoning_content: reasoningText } : {}),
   }
 }
 
 export function mapNormalizedRequestToOpenAIChatRequest(request: NormalizedRequest) {
   const instructionText = stringifyTextBlocks(request.instructions)
+  const openAIExtensions = (request.extensions?.openai ?? {}) as Record<string, unknown>
+  const reasoningEffort = toOpenAIReasoningEffort(request.reasoning)
+  const unmappedRequestFields =
+    openAIExtensions.unmappedRequestFields && typeof openAIExtensions.unmappedRequestFields === 'object'
+      ? openAIExtensions.unmappedRequestFields as Record<string, unknown>
+      : undefined
 
-  return {
+  const body = {
     model: request.targetModel,
     messages: [
       ...(instructionText ? [{ role: 'system', content: instructionText }] : []),
@@ -59,16 +116,29 @@ export function mapNormalizedRequestToOpenAIChatRequest(request: NormalizedReque
     tool_choice:
       request.toolChoice?.type === 'tool'
         ? {
-            type: 'function' as const,
-            function: { name: request.toolChoice.name },
-          }
+          type: 'function' as const,
+          function: { name: request.toolChoice.name },
+        }
         : request.toolChoice?.type,
     stream: request.stream,
     temperature: request.output?.temperature,
+    top_p: request.output?.topP,
     max_completion_tokens: request.output?.maxOutputTokens,
     stop:
       request.output?.stop && request.output.stop.length === 1
         ? request.output.stop[0]
         : request.output?.stop,
+    ...(reasoningEffort !== undefined ? { reasoning_effort: reasoningEffort } : {}),
+    ...(typeof request.parallelToolCalls === 'boolean' ? { parallel_tool_calls: request.parallelToolCalls } : {}),
+    ...(openAIExtensions.response_format !== undefined ? { response_format: openAIExtensions.response_format } : {}),
   }
+
+  // Same-provider passthrough of provider-native fields (user, seed,
+  // service_tier, logprobs, frequency_penalty, presence_penalty, etc.) that
+  // we don't model explicitly. Cross-provider, these are intentionally dropped
+  // because they have no representation in the other vendor's API.
+  if (unmappedRequestFields) {
+    return { ...unmappedRequestFields, ...body }
+  }
+  return body
 }
