@@ -54,7 +54,7 @@ Run `omni-relay` locally with a single OpenAI-compatible upstream target.
    curl http://127.0.0.1:8787/healthz
    ```
 
-5. **Create a Codex CLI profile**
+5a. **Create a Codex CLI profile**
 
    Create `~/.codex/relay.config.toml`:
 
@@ -68,6 +68,16 @@ Run `omni-relay` locally with a single OpenAI-compatible upstream target.
    wire_api = "responses"
    env_key = "RELAY_API_KEY"
    ```
+
+   Export the relay key into your shell, then start Codex
+
+   ```bash
+   export RELAY_API_KEY="<your-relay-api-key>"
+   codex -p relay
+   ```
+
+   > Codex reads `env_key` from the OS environment, not from `.dev.vars`.
+   > The value must match what you put in `.dev.vars` in step 2.
 
 5b. **Create a Claude CLI profile**
 
@@ -90,17 +100,7 @@ Run `omni-relay` locally with a single OpenAI-compatible upstream target.
    claude --settings ~/.claude/settings.json-relay
    ```
 
-6. **Export the relay key into your shell, then start Codex**
-
-   ```bash
-   export RELAY_API_KEY="<your-relay-api-key>"
-   codex -p relay
-   ```
-
-   > Codex reads `env_key` from the OS environment, not from `.dev.vars`.
-   > The value must match what you put in `.dev.vars` in step 2.
-
-7. **Run in background (optional)**
+6. **Run in background (optional)**
 
    Keep the relay running after you close the terminal with [pm2](https://pm2.keymetrics.io/):
 
