@@ -49,8 +49,10 @@ function normalizeOutput(record: Record<string, unknown>): ContentBlock[] {
     }
 
     if (outputItem.type === 'function_call' && typeof outputItem.name === 'string') {
-      const id = typeof outputItem.id === 'string' ? outputItem.id : crypto.randomUUID()
-      const callId = typeof outputItem.call_id === 'string' ? outputItem.call_id : id
+      // Mirror resolveCallIds() in the Responses ingress parser so an item that
+      // carries only one of id / call_id doesn't lose the upstream correlation.
+      const callId = typeof outputItem.call_id === 'string' ? outputItem.call_id : undefined
+      const id = typeof outputItem.id === 'string' ? outputItem.id : callId ?? crypto.randomUUID()
       output.push({
         type: 'tool_call',
         id,

@@ -147,8 +147,32 @@ describe('isRetryableError', () => {
     expect(isRetryableError(new UpstreamAPIError('unauthorized', {}, 401))).toBe(false)
   })
 
-  it('returns false for 400', () => {
+  it('returns false for 400 without retryable upstream code', () => {
     expect(isRetryableError(new UpstreamAPIError('bad request', {}, 400))).toBe(false)
+  })
+
+  it('returns true for 400 with z.ai code 1210 (transient)', () => {
+    const error = new UpstreamAPIError('upstream failed', {
+      status: 400,
+      payload: { error: { code: '1210', message: 'Invalid API parameter, please check the documentation.' } },
+    }, 400)
+    expect(isRetryableError(error)).toBe(true)
+  })
+
+  it('returns false for 400 with a non-retryable upstream code', () => {
+    const error = new UpstreamAPIError('upstream failed', {
+      status: 400,
+      payload: { error: { code: 'invalid_model', message: 'Model not found' } },
+    }, 400)
+    expect(isRetryableError(error)).toBe(false)
+  })
+
+  it('returns false for 400 with code 1210 but missing error wrapper', () => {
+    const error = new UpstreamAPIError('upstream failed', {
+      status: 400,
+      payload: { code: '1210' },
+    }, 400)
+    expect(isRetryableError(error)).toBe(false)
   })
 
   it('returns false for generic Error', () => {
@@ -291,10 +315,16 @@ describe('parseRetryAfterMs', () => {
   })
 
   it('parses HTTP-date format without clamping', () => {
-    const future = new Date(Date.now() + 60_000).toUTCString()
+    // Use a large future offset so the test is robust to sub-second truncation
+    // in toUTCString() and small scheduling delays during test execution.
+    // The key assertion: the value is NOT clamped to a maximum.
+    const future = new Date(Date.now() + 300_000).toUTCString()
     const result = parseRetryAfterMs(future)
     expect(result).toBeGreaterThan(0)
-    expect(result).toBeGreaterThanOrEqual(59_000)
+    // toUTCString() truncates sub-second precision (up to ~1s loss) and a
+    // few ms may elapse during execution; 298_000 gives 2s of total slack.
+    expect(result).toBeGreaterThanOrEqual(298_000)
+    expect(result).toBeLessThanOrEqual(300_000)
   })
 
   it('returns undefined for unparseable values', () => {

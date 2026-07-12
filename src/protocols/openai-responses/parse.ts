@@ -96,6 +96,14 @@ function parseInput(input: string | Array<Record<string, unknown>>): { instructi
       continue
     }
 
+    // Reasoning items (type: 'reasoning') represent the model's prior
+    // thinking context. They have no Chat Completions equivalent and
+    // producing an empty user message from them causes upstream 400s
+    // (e.g. z.ai code 1210 on content:null). Skip them on the Chat wire.
+    if (item.type === 'reasoning') {
+      continue
+    }
+
     const role = typeof item.role === 'string' ? item.role : 'user'
     const content =
       typeof item.content === 'string'

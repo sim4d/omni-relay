@@ -58,10 +58,15 @@ function parseContentBlocks(content: string | Array<Record<string, unknown>>, de
       }
       if (structured && structured.length > 0) {
         result.content = structured
-        // If the structured content is a single text block, prefer its text as
-        // the flat result so string-only consumers get the natural value.
-        if (structured.length === 1 && structured[0].type === 'text') {
-          result.result = structured[0].text
+        // When every structured block is text, join them with newlines so
+        // string-only consumers see the natural concatenation instead of a
+        // JSON-stringified array. Heterogeneous content keeps the JSON fallback
+        // set above (preserves non-text structured blocks).
+        const allText = structured.every((b) => b.type === 'text')
+        if (allText) {
+          result.result = structured
+            .map((b) => (b as Extract<ContentBlock, { type: 'text' }>).text)
+            .join('\n')
         }
       }
       return [result satisfies ContentBlock]
@@ -88,12 +93,10 @@ function parseContentBlocks(content: string | Array<Record<string, unknown>>, de
 
     const mediaBlock = anthropicMediaBlockToNormalized(block)
     if (mediaBlock) {
-      const cacheControl = parseCacheControl(block)
-      if (cacheControl && mediaBlock.type !== 'text') {
-        // media blocks don't carry cacheControl in the IR; preserve via the
-        // text-block field where relevant. For now keep it simple: only text
-        // blocks model cacheControl explicitly.
-      }
+      // Media blocks do not carry cacheControl in the IR today (only text
+      // blocks model it). If we ever need to preserve it on media blocks,
+      // extend ImageContentBlock / DocumentContentBlock with the marker and
+      // emit it in providers/anthropic/map-request.ts.
       return [mediaBlock]
     }
 

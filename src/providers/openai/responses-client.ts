@@ -1,4 +1,5 @@
 import { AuthenticationError, UpstreamAPIError } from '../../errors'
+import { log } from '../../observability'
 import type { NormalizedRequest, NormalizedResult, UpstreamTarget } from '../../core/ir'
 import { parseJsonResponse, buildUpstreamErrorDetails } from '../../lib/fetch'
 import { mapNormalizedRequestToOpenAIResponsesRequest } from './map-responses-request'
@@ -10,18 +11,20 @@ export async function invokeOpenAIResponses(request: NormalizedRequest, target: 
     throw new AuthenticationError(`OPENAI_KEY_${target.slot} is not configured in the Worker environment`)
   }
 
+  const body = mapNormalizedRequestToOpenAIResponsesRequest(request)
   const upstream = await fetch(`${target.baseUrl}/responses`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${target.apiKey}`,
       'content-type': 'application/json',
     },
-    body: JSON.stringify(mapNormalizedRequestToOpenAIResponsesRequest(request)),
+    body: JSON.stringify(body),
   })
 
   const payload = await parseJsonResponse(upstream)
 
   if (!upstream.ok) {
+    logUpstreamFailure('responses', target, body, upstream.status, payload)
     throw new UpstreamAPIError('OpenAI Responses upstream request failed', buildUpstreamErrorDetails(upstream, payload), upstream.status)
   }
 
@@ -33,20 +36,19 @@ export async function invokeOpenAIResponsesStream(request: NormalizedRequest, ta
     throw new AuthenticationError(`OPENAI_KEY_${target.slot} is not configured in the Worker environment`)
   }
 
+  const body = { ...mapNormalizedRequestToOpenAIResponsesRequest(request), stream: true }
   const upstream = await fetch(`${target.baseUrl}/responses`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${target.apiKey}`,
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      ...mapNormalizedRequestToOpenAIResponsesRequest(request),
-      stream: true,
-    }),
+    body: JSON.stringify(body),
   })
 
   if (!upstream.ok) {
     const payload = await parseJsonResponse(upstream)
+    logUpstreamFailure('responses_stream', target, body, upstream.status, payload)
     throw new UpstreamAPIError('OpenAI Responses upstream request failed', buildUpstreamErrorDetails(upstream, payload), upstream.status)
   }
 
@@ -55,4 +57,26 @@ export async function invokeOpenAIResponsesStream(request: NormalizedRequest, ta
   }
 
   return mapOpenAIResponsesStreamToEvents(upstream.body)
+}
+
+/**
+ * Log the request body keys + upstream error payload when an upstream call
+ * fails, so we can diagnose which field the upstream rejects (e.g. z.ai 1210).
+ */
+function logUpstreamFailure(
+  wire: string,
+  target: UpstreamTarget,
+  body: Record<string, unknown>,
+  status: number,
+  payload: unknown,
+): void {
+  log('error', 'upstream_request_failed_detail', {
+    wire,
+    upstreamSlot: target.slot,
+    upstreamBaseUrl: target.baseUrl,
+    upstreamStatus: status,
+    requestBodyKeys: Object.keys(body),
+    requestBody: JSON.stringify(body).slice(0, 2000),
+    upstreamPayload: payload,
+  })
 }

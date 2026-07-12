@@ -13,13 +13,39 @@ const MAX_TOTAL_DELAY_MS = 25_000
 // HTTP status codes worth retrying: rate limiting + transient server errors.
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504])
 
+// Some upstream providers return HTTP 400 with a provider-specific error code
+// that is actually transient (rate-limit, internal glitch) rather than a true
+// validation error. z.ai (ZhipuAI) returns code "1210" ("Invalid API
+// parameter") intermittently even when the request body is valid — retrying
+// with the identical body succeeds. We treat these as retryable to avoid
+// hard-failing the client on a transient upstream hiccup.
+const RETRYABLE_UPSTREAM_CODES = new Set(['1210'])
+
 // HTTP-date regex (RFC 7231 §7.1.3 / IMF-fixdate). Validates that a string
 // looks like an HTTP-date before passing it to the Date constructor, which is
 // too lenient and would parse strings like "5, 10" as valid dates.
 const HTTP_DATE_RE = /^[A-Za-z]{3},\s\d{1,2}\s[A-Za-z]{3}\s\d{4}\s\d{2}:\d{2}:\d{2}\sGMT$/
 
 export function isRetryableError(error: unknown): boolean {
-  return error instanceof UpstreamAPIError && RETRYABLE_STATUSES.has(error.status)
+  if (!(error instanceof UpstreamAPIError)) return false
+  if (RETRYABLE_STATUSES.has(error.status)) return true
+
+  // Check for transient upstream-specific 400s (e.g. z.ai code 1210).
+  if (error.status === 400 && error.details && typeof error.details === 'object') {
+    const details = error.details as Record<string, unknown>
+    const payload = details.payload
+    if (payload && typeof payload === 'object') {
+      const errObj = (payload as Record<string, unknown>).error
+      if (errObj && typeof errObj === 'object') {
+        const code = (errObj as Record<string, unknown>).code
+        if (typeof code === 'string' && RETRYABLE_UPSTREAM_CODES.has(code)) {
+          return true
+        }
+      }
+    }
+  }
+
+  return false
 }
 
 function randomDelay(): number {

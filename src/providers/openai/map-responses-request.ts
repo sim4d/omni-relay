@@ -119,7 +119,12 @@ export function mapNormalizedRequestToOpenAIResponsesRequest(request: Normalized
     ...(typeof request.parallelToolCalls === 'boolean' ? { parallel_tool_calls: request.parallelToolCalls } : {}),
   }
 
-  if (unmappedRequestFields) {
+  // Same-wire passthrough of Responses-native fields (previous_response_id,
+  // store, user, service_tier, etc.). Only forwarded when the request also
+  // arrived on the Responses wire. Chat-native fields (max_tokens,
+  // frequency_penalty, etc.) are dropped on this path to avoid upstream 400s.
+  const ingressProtocol = typeof openAIExtensions.ingressProtocol === 'string' ? openAIExtensions.ingressProtocol : undefined
+  if (unmappedRequestFields && ingressProtocol === 'responses') {
     return { ...unmappedRequestFields, ...body }
   }
   return body

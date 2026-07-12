@@ -32,6 +32,11 @@ export default {
         path: requestContext.path,
         durationMs: Date.now() - startedAt,
         error: error instanceof Error ? error.message : String(error),
+        // Include structured error details (e.g. upstream status + payload)
+        // so failures are diagnosable without reproducing interactively.
+        ...(error && typeof error === 'object' && 'details' in error && error.details
+          ? { errorDetails: error.details }
+          : {}),
       })
       return renderError(error, requestContext.requestId, protocolForPath(requestContext.path))
     }

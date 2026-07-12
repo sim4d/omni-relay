@@ -1,6 +1,6 @@
 import { AuthenticationError, ValidationError } from '../../errors'
 import { assertMilestoneOneFeatureSupport } from '../../core/feature-gates'
-import { selectUpstreamTarget } from '../../core/routing'
+import { selectUpstreamTargetWithFallback } from '../../core/routing'
 import { invokeUpstream, invokeUpstreamStream } from '../../core/upstream-dispatch'
 import { parseRelayCredential, validateRelayAuthorization } from '../../auth'
 import { readJsonBody } from '../../lib/json'
@@ -26,9 +26,16 @@ export async function handleOpenAIChatCompletions(request: Request, env: AppEnv,
   }
 
   const targets = resolveUpstreamTargets(env)
-  const target = selectUpstreamTarget(normalized, targets)
+  const { target, fallbackFrom } = selectUpstreamTargetWithFallback(normalized, targets)
   normalized.targetSlot = target.slot
   assertMilestoneOneFeatureSupport(normalized, target.kind, 'chat')
+  if (fallbackFrom) {
+    log('warn', 'routing_model_fallback', {
+      requestId: requestContext.requestId,
+      from: fallbackFrom,
+      to: normalized.targetModel,
+    })
+  }
   log('info', 'relay_request_resolved', {
     requestId: requestContext.requestId,
     routeProtocol: 'chat',

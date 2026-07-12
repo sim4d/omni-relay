@@ -9,6 +9,7 @@ import { mapNormalizedRequestToAnthropicMessagesRequest } from '../../src/provid
 import { mapOpenAIChatStreamToEvents } from '../../src/providers/openai/map-stream'
 import { mapOpenAIResponsesStreamToEvents } from '../../src/providers/openai/map-responses-stream'
 import { renderOpenAIChatStream } from '../../src/protocols/openai-chat/stream'
+import { mapOpenAIResponsesResponseToNormalizedResult } from '../../src/providers/openai/map-responses-response'
 import { renderOpenAIResponsesStream } from '../../src/protocols/openai-responses/stream'
 import { renderAnthropicMessagesStream } from '../../src/protocols/anthropic-messages/stream'
 
@@ -545,6 +546,52 @@ describe('B3 edge: tool_result content rendering on Anthropic egress', () => {
     expect(Array.isArray(tr.content)).toBe(true)
     expect(tr.content).toEqual([{ type: 'text', text: 'rich output' }])
   })
+
+  it('joins multi-text structured tool_result content with newlines (regression for JSON-stringified array fallback)', () => {
+    const normalized = parseAnthropicMessagesRequest({
+      model: 'glm-4.7',
+      max_tokens: 1024,
+      messages: [{
+        role: 'user',
+        content: [{
+          type: 'tool_result',
+          tool_use_id: 'c1',
+          content: [
+            { type: 'text', text: 'first line' },
+            { type: 'text', text: 'second line' },
+          ],
+        }],
+      }],
+    })
+    const tr = normalized.messages[0].content[0] as { result: string; content?: unknown }
+    // The IR's flat `result` should be the newline-joined text, not a JSON array.
+    expect(tr.result).toBe('first line\nsecond line')
+  })
+
+  it('keeps the JSON fallback for heterogeneous structured tool_result content', () => {
+    const normalized = parseAnthropicMessagesRequest({
+      model: 'glm-4.7',
+      max_tokens: 1024,
+      messages: [{
+        role: 'user',
+        content: [{
+          type: 'tool_result',
+          tool_use_id: 'c1',
+          content: [
+            { type: 'text', text: 'caption' },
+            // image blocks are not supported inside tool_result on Anthropic
+            // today, but the parser still preserves them via provider_extension;
+            // what matters here is that we DON'T pretend the result is plain text.
+            { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'AAA' } },
+          ],
+        }],
+      }],
+    })
+    const tr = normalized.messages[0].content[0] as { result: string; content?: unknown }
+    // Heterogeneous blocks: flat fallback is still a JSON-encoded array so
+    // string-only consumers can at least round-trip the structured form.
+    expect(tr.result.startsWith('[')).toBe(true)
+  })
 })
 
 describe('Responses streaming reasoning_summary_text rendering', () => {
@@ -577,5 +624,183 @@ describe('Responses streaming reasoning_summary_text rendering', () => {
     expect(body).toContain('response.reasoning_summary_text.delta')
     expect(body).toContain('reasoning_summary_text.done')
     expect(body).toContain('"type":"reasoning"')
+  })
+})
+
+describe('cross-wire unmapped field isolation (Responses -> Chat)', () => {
+  // Regression for z.ai code 1210: Codex sends Responses-native fields
+  // (store, include, prompt_cache_key, service_tier) that must NOT leak into
+  // the Chat Completions upstream body. The relay should only passthrough
+  // unmapped fields on the same-wire path (Responses->Responses, Chat->Chat).
+  it('drops Responses-native fields when mapping to Chat Completions', () => {
+    const normalized = parseOpenAIResponsesRequest({
+      model: 'glm-5.2',
+      input: [{ role: 'user', content: [{ type: 'input_text', text: 'hi' }] }],
+      tools: [{ type: 'function', name: 'shell', description: 'run', parameters: { type: 'object', properties: {} } }],
+      parallel_tool_calls: true,
+      reasoning: { effort: 'high' },
+      store: false,
+      include: ['reasoning.encrypted_content'],
+      prompt_cache_key: 'session-abc',
+      service_tier: 'auto',
+      max_output_tokens: 1024,
+    })
+    const chat = mapNormalizedRequestToOpenAIChatRequest(normalized) as Record<string, unknown>
+    expect(chat.store).toBeUndefined()
+    expect(chat.include).toBeUndefined()
+    expect(chat.prompt_cache_key).toBeUndefined()
+    expect(chat.service_tier).toBeUndefined()
+    expect(chat.reasoning_effort).toBe('high')
+    expect(chat.parallel_tool_calls).toBe(true)
+    expect(chat.max_completion_tokens).toBe(1024)
+  })
+
+  it('drops Chat-native fields when mapping to Responses', () => {
+    const normalized = parseOpenAIChatRequest({
+      model: 'glm-5.2',
+      messages: [{ role: 'user', content: 'hi' }],
+      frequency_penalty: 0.5,
+      presence_penalty: 0.3,
+      seed: 42,
+      user: 'user-123',
+      logprobs: true,
+    })
+    const resp = mapNormalizedRequestToOpenAIResponsesRequest(normalized) as Record<string, unknown>
+    expect(resp.frequency_penalty).toBeUndefined()
+    expect(resp.presence_penalty).toBeUndefined()
+    expect(resp.seed).toBeUndefined()
+    expect(resp.user).toBeUndefined()
+    expect(resp.logprobs).toBeUndefined()
+  })
+
+
+
+  it('keeps Chat-native fields on the same-wire Chat -> Chat path (ingressProtocol gate)', () => {
+    const normalized = parseOpenAIChatRequest({
+      model: 'glm-5.2',
+      messages: [{ role: 'user', content: 'hi' }],
+      frequency_penalty: 0.5,
+      presence_penalty: 0.3,
+      seed: 42,
+      user: 'user-123',
+      logprobs: true,
+    })
+    const chat = mapNormalizedRequestToOpenAIChatRequest(normalized) as Record<string, unknown>
+    // Same-wire passthrough: Chat-native unmapped fields survive because
+    // ingressProtocol === 'chat.completions'.
+    expect(chat.frequency_penalty).toBe(0.5)
+    expect(chat.presence_penalty).toBe(0.3)
+    expect(chat.seed).toBe(42)
+    expect(chat.user).toBe('user-123')
+    expect(chat.logprobs).toBe(true)
+  })
+
+  it('keeps Responses-native fields on the same-wire Responses -> Responses path (ingressProtocol gate)', () => {
+    const normalized = parseOpenAIResponsesRequest({
+      model: 'glm-5.2',
+      input: [{ role: 'user', content: [{ type: 'input_text', text: 'hi' }] }],
+      store: false,
+      prompt_cache_key: 'session-abc',
+      service_tier: 'auto',
+    })
+    const resp = mapNormalizedRequestToOpenAIResponsesRequest(normalized) as Record<string, unknown>
+    // Same-wire passthrough: Responses-native unmapped fields survive because
+    // ingressProtocol === 'responses'.
+    expect(resp.store).toBe(false)
+    expect(resp.prompt_cache_key).toBe('session-abc')
+    expect(resp.service_tier).toBe('auto')
+  })
+})
+
+describe('P1: Responses upstream response keeps tool correlation across single-id variants', () => {
+  // Regression for map-responses-response.ts: when the upstream item omits
+  // id or call_id, we must still preserve the single correlation identifier
+  // (so a tool_result referencing call_id matches the tool_call the IR emits).
+  // Mirrors the resolveCallIds() contract used by the ingress parser.
+  it('mirrors call_id onto id when item omits id (only call_id present)', () => {
+    const result = mapOpenAIResponsesResponseToNormalizedResult({
+      id: 'resp_1',
+      model: 'glm-5.2',
+      status: 'completed',
+      output: [
+        { type: 'function_call', call_id: 'call_only', name: 'shell', arguments: '{}' },
+      ],
+    })
+    const toolCall = result.output[0] as { id: string; callId?: string; name: string }
+    expect(toolCall).toMatchObject({ type: 'tool_call', id: 'call_only', callId: 'call_only', name: 'shell' })
+  })
+
+  it('preserves id and leaves callId undefined when item omits call_id (only id present)', () => {
+    const result = mapOpenAIResponsesResponseToNormalizedResult({
+      id: 'resp_2',
+      model: 'glm-5.2',
+      status: 'completed',
+      output: [
+        { type: 'function_call', id: 'fc_only', name: 'shell', arguments: '{}' },
+      ],
+    })
+    const toolCall = result.output[0] as { id: string; callId?: string; name: string }
+    expect(toolCall).toMatchObject({ type: 'tool_call', id: 'fc_only', name: 'shell' })
+    expect(toolCall.callId).toBeUndefined()
+  })
+
+  it('preserves both id and call_id when upstream provides both', () => {
+    const result = mapOpenAIResponsesResponseToNormalizedResult({
+      id: 'resp_3',
+      model: 'glm-5.2',
+      status: 'completed',
+      output: [
+        { type: 'function_call', id: 'fc_123', call_id: 'call_456', name: 'shell', arguments: '{}' },
+      ],
+    })
+    const toolCall = result.output[0] as { id: string; callId?: string; name: string }
+    expect(toolCall).toMatchObject({ type: 'tool_call', id: 'fc_123', callId: 'call_456', name: 'shell' })
+  })
+})
+
+describe('P1: reasoning items in Responses input do not produce content:null on Chat wire', () => {
+  // Regression for z.ai code 1210: Codex sends reasoning items (with
+  // encrypted_content) in the Responses input. These have no Chat Completions
+  // equivalent and must not produce user messages with content:null.
+  it('skips reasoning items when converting Responses input to Chat', () => {
+    const normalized = parseOpenAIResponsesRequest({
+      model: 'glm-5.2',
+      input: [
+        { type: 'reasoning', summary: [{ type: 'summary_text', text: 'thinking...' }], encrypted_content: 'ABC123' },
+        { role: 'user', content: [{ type: 'input_text', text: 'hi' }] },
+      ],
+    })
+    const chat = mapNormalizedRequestToOpenAIChatRequest(normalized) as { messages: Array<{ role: string; content: string | null }> }
+    // The reasoning item must NOT appear as a user message with content:null
+    const nullContentMsgs = chat.messages.filter((m) => m.content === null && m.role === 'user')
+    expect(nullContentMsgs).toHaveLength(0)
+    // The actual user message should survive
+    expect(chat.messages.some((m) => m.role === 'user' && m.content === 'hi')).toBe(true)
+  })
+})
+
+describe('P2: reasoning-only assistant message survives Chat filter (reasoning_content)', () => {
+  // Regression for the message filter in map-request.ts: an assistant message
+  // that carries only reasoning_content (from Anthropic thinking blocks) and
+  // no text content or tool_calls must NOT be dropped by the filter.
+  it('keeps reasoning-only assistant messages on the Chat wire', () => {
+    const normalized = parseAnthropicMessagesRequest({
+      model: 'glm-4.7',
+      max_tokens: 1024,
+      messages: [
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: [{ type: 'thinking', thinking: 'let me think...', signature: 'sig123' }] },
+        { role: 'user', content: 'follow up' },
+      ],
+    })
+    const chat = mapNormalizedRequestToOpenAIChatRequest(normalized) as {
+      messages: Array<{ role: string; content: string | null; reasoning_content?: string }>
+    }
+    // The reasoning-only assistant message must survive (not filtered out)
+    const reasoningMsg = chat.messages.find((m) => m.reasoning_content !== undefined)
+    expect(reasoningMsg).toBeDefined()
+    expect(reasoningMsg!.reasoning_content).toBe('let me think...')
+    // Both user messages must survive too
+    expect(chat.messages.filter((m) => m.role === 'user')).toHaveLength(2)
   })
 })

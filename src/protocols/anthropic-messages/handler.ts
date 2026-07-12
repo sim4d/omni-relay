@@ -1,7 +1,7 @@
 import { AuthenticationError, ValidationError } from '../../errors'
 import { parseRelayCredential, validateRelayAuthorization } from '../../auth'
 import { assertMilestoneOneFeatureSupport } from '../../core/feature-gates'
-import { selectUpstreamTarget } from '../../core/routing'
+import { selectUpstreamTargetWithFallback } from '../../core/routing'
 import { invokeUpstream, invokeUpstreamStream } from '../../core/upstream-dispatch'
 import type { AppEnv } from '../../env'
 import { jsonResponse } from '../../lib/http'
@@ -26,9 +26,16 @@ export async function handleAnthropicMessages(request: Request, env: AppEnv, req
   }
 
   const targets = resolveUpstreamTargets(env)
-  const target = selectUpstreamTarget(normalized, targets)
+  const { target, fallbackFrom } = selectUpstreamTargetWithFallback(normalized, targets)
   normalized.targetSlot = target.slot
   assertMilestoneOneFeatureSupport(normalized, target.kind, 'messages')
+  if (fallbackFrom) {
+    log('warn', 'routing_model_fallback', {
+      requestId: requestContext.requestId,
+      from: fallbackFrom,
+      to: normalized.targetModel,
+    })
+  }
   log('info', 'relay_request_resolved', {
     requestId: requestContext.requestId,
     routeProtocol: 'messages',

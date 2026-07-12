@@ -103,7 +103,14 @@ export function mapNormalizedRequestToOpenAIChatRequest(request: NormalizedReque
     model: request.targetModel,
     messages: [
       ...(instructionText ? [{ role: 'system', content: instructionText }] : []),
-      ...request.messages.map(toChatMessage),
+      ...request.messages
+        .map(toChatMessage)
+        // Filter out messages that are completely empty after translation
+        // (e.g. reasoning-only items that have no Chat representation).
+        // Sending content:null user messages causes 400s on strict upstreams.
+        .filter((msg) => msg.content !== null
+        || (msg as Record<string, unknown>).tool_calls !== undefined
+        || (msg as Record<string, unknown>).reasoning_content !== undefined),
     ],
     tools: request.tools?.map((tool) => ({
       type: 'function' as const,
@@ -133,11 +140,15 @@ export function mapNormalizedRequestToOpenAIChatRequest(request: NormalizedReque
     ...(openAIExtensions.response_format !== undefined ? { response_format: openAIExtensions.response_format } : {}),
   }
 
-  // Same-provider passthrough of provider-native fields (user, seed,
-  // service_tier, logprobs, frequency_penalty, presence_penalty, etc.) that
-  // we don't model explicitly. Cross-provider, these are intentionally dropped
-  // because they have no representation in the other vendor's API.
-  if (unmappedRequestFields) {
+  // Same-wire passthrough of Chat-native fields (user, seed, logprobs,
+  // frequency_penalty, presence_penalty, etc.) that we don't model
+  // explicitly. Only forwarded when the request also arrived on the Chat wire
+  // (ingressProtocol 'chat.completions'). Fields from a Responses or Messages
+  // ingress (store, include, prompt_cache_key, service_tier, etc.) are
+  // dropped because they have no Chat Completions equivalent and cause
+  // upstream 400s on strict OpenAI-compatible providers (e.g. z.ai code 1210).
+  const ingressProtocol = typeof openAIExtensions.ingressProtocol === 'string' ? openAIExtensions.ingressProtocol : undefined
+  if (unmappedRequestFields && ingressProtocol === 'chat.completions') {
     return { ...unmappedRequestFields, ...body }
   }
   return body

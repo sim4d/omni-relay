@@ -5,3 +5,4 @@ dist/
 .worker/
 wrangler.toml
 .dev.vars
+ecosystem.config.cjs

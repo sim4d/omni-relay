@@ -32,6 +32,7 @@ export function selectUpstreamTarget(
     const declared = describeTargets(config)
     throw new ProviderSelectionError(
       `No upstream target matches model '${request.targetModel}'. Configured targets: ${declared}`,
+      { reason: 'no_match' },
     )
   }
 
@@ -41,10 +42,73 @@ export function selectUpstreamTarget(
       .join(', ')
     throw new ProviderSelectionError(
       `Model '${request.targetModel}' matches multiple upstream targets: ${conflict}. Disambiguate with narrower model globs or a providerHint.`,
+      { reason: 'ambiguous' },
     )
   }
 
   return matched[0]!
+}
+
+// ---------------------------------------------------------------------------
+// Model fallback
+// ---------------------------------------------------------------------------
+
+/**
+ * The model name from the most recent *successful* routing. Used by
+ * `selectUpstreamTargetWithFallback` to substitute unknown models (e.g.
+ * `gpt-5.4-mini`, which Codex CLI sends internally but no configured upstream
+ * serves) with a model that is known to work.
+ *
+ * This is module-level state, which is acceptable for a single-instance dev
+ * relay. In a multi-instance deployment, each instance tracks independently.
+ */
+let _lastRoutedModel: string | undefined
+
+/** Reset the fallback state. Exposed for testing. */
+export function _resetLastRoutedModel(): void {
+  _lastRoutedModel = undefined
+}
+
+/**
+ * Like {@link selectUpstreamTarget}, but when the requested model matches no
+ * target, falls back to the last successfully-used model instead of
+ * hard-failing.
+ *
+ * On a successful match (original or fallback), the request's `targetModel`
+ * is updated in-place to the effective model name so downstream clients
+ * (provider mappers, upstream fetch) see the substituted value.
+ *
+ * Returns the resolved target and, if a fallback was applied, the original
+ * model name so the caller can log the substitution.
+ */
+export function selectUpstreamTargetWithFallback(
+  request: NormalizedRequest,
+  config: UpstreamTargetsConfig,
+): { target: UpstreamTarget; fallbackFrom?: string } {
+  try {
+    const target = selectUpstreamTarget(request, config)
+    _lastRoutedModel = request.targetModel
+    return { target }
+  } catch (err) {
+    // Only attempt fallback on zero-match errors, not ambiguity errors.
+    if (
+      err instanceof ProviderSelectionError
+      && (err.details as { reason?: string } | undefined)?.reason === 'no_match'
+      && _lastRoutedModel
+      && _lastRoutedModel.toLowerCase() !== request.targetModel.toLowerCase()
+    ) {
+      const originalModel = request.targetModel
+      request.targetModel = _lastRoutedModel
+      try {
+        const target = selectUpstreamTarget(request, config)
+        return { target, fallbackFrom: originalModel }
+      } catch {
+        // Fallback model also failed — restore original and throw original error.
+        request.targetModel = originalModel
+      }
+    }
+    throw err
+  }
 }
 
 /**
